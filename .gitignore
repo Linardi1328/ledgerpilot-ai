@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 *.egg-info/
+.pyre/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
@@ -18,6 +19,8 @@ env/
 .env
 .env.*
 !.env.example
+credentials/
+secrets/
 *.pem
 *.key
 *.p12
@@ -29,6 +32,13 @@ env/
 *.db
 dist/
 build/
+site/
+uploads/
+documents/
+storage/
+local_storage/
+exports/
+generated/
 
 # Editors and OS files
 .DS_Store
