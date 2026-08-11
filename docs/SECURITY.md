@@ -1,6 +1,6 @@
 # Security Requirements
 
-This document defines planned security requirements. It does not claim these controls are implemented in Phase 0.
+This document defines security requirements and implementation boundaries. Phase 2 implements a local-development secure document-intake boundary only; most production security controls remain planned and must not be claimed as production-ready.
 
 ## Authentication
 
@@ -47,6 +47,8 @@ This document defines planned security requirements. It does not claim these con
 - Store original files in controlled document storage.
 - Use temporary or signed access for file retrieval.
 - Prevent direct public access to private documents.
+
+Phase 2 implements the first document-intake boundary for PDF, JPEG, and PNG files with bounded streaming, SHA-256 metadata, signature/MIME/extension checks, local staging, quarantine, local accepted storage, and a guarded deterministic development scanner. See [Document Intake Security](DOCUMENT_INTAKE_SECURITY.md). Production object storage, real malware scanning, signed download access, retention automation, and production hardening remain future work.
 
 ## Audit Logging
 

@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the architecture direction. Phase 1 implements backend infrastructure foundations while preserving the Phase 0 modular-monolith direction.
+This document describes the architecture direction. Phase 2 implements secure document intake while preserving the Phase 0 modular-monolith direction.
 
 ## Architecture Style
 
@@ -36,7 +36,7 @@ Future optional components:
 - Cloud document-processing APIs.
 - Local machine-learning models.
 
-## Implemented Through Phase 1
+## Implemented Through Phase 2
 
 - Documentation.
 - Repository policy.
@@ -56,11 +56,24 @@ Future optional components:
 - Request correlation ID middleware.
 - Docker Compose PostgreSQL development service.
 - GitHub Actions CI for linting, formatting, type checking, tests, coverage, migrations, and build.
+- Secure document-intake endpoint for PDF, JPEG, and PNG uploads.
+- Protected document metadata endpoint.
+- Document metadata and document-file persistence.
+- Document lifecycle state machine through validation, scanning, quarantine, and stored states.
+- Bounded streaming upload with SHA-256 calculation.
+- Filename, size, MIME, extension, and file-signature validation.
+- Provider-independent document storage boundary.
+- Local development/test document storage with staging, accepted, and quarantine areas.
+- Provider-independent malware scanner boundary.
+- Deterministic development/test scanner with production guard.
+- Document intake audit events.
 
 ## Planned Future Components
 
 - Production authentication.
-- Secure document upload and storage.
+- Production object storage.
+- Production malware scanning.
+- Secure document download.
 - OCR and extraction.
 - AI recommendation providers.
 - Accounting recommendation logic.
@@ -78,8 +91,8 @@ flowchart LR
     Senior[Senior Reviewer] --> LP
     Admin[Firm Administrator] --> LP
     Auditor[Auditor / Read-Only User] --> LP
-    LP --> Store[(Document Storage - future)]
-    LP --> DB[(PostgreSQL - Phase 1 infrastructure)]
+    LP --> Store[(Local Document Storage - Phase 2 development)]
+    LP --> DB[(PostgreSQL - Phase 1/2 metadata)]
     LP --> OCR[OCR / Extraction Provider - future]
     LP --> AI[AI Recommendation Provider - future]
     LP --> SQL[SQL Account - future integration]
@@ -96,7 +109,7 @@ flowchart TB
     end
     subgraph App["LedgerPilot application boundary - future"]
         Auth[Authentication and RBAC]
-        Val[File validation and malware scan]
+        Val[File validation and malware scan - Phase 2 boundary]
         Core[Deterministic accounting controls]
         Review[Human review workflow]
         Approved[Approved post-review integration boundary]
@@ -132,6 +145,29 @@ Phase 1 exposes only infrastructure endpoints:
 - `GET /api/v1/context`
 
 The context endpoint is protected and exists only to prove authenticated principal construction. It is not a business workflow endpoint.
+
+## Phase 2 Document Intake Boundary
+
+Phase 2 exposes only document-intake metadata endpoints:
+
+- `POST /api/v1/clients/{client_id}/documents`
+- `GET /api/v1/clients/{client_id}/documents/{document_id}`
+
+The upload endpoint requires `UPLOAD_DOCUMENTS` plus explicit firm and client scope. The metadata endpoint requires `VIEW_DOCUMENTS` plus explicit firm and client scope. Neither endpoint exposes raw file downloads, filesystem paths, storage roots, scanner internals, OCR output, invoice fields, accounting recommendations, journals, SQL Account, or MyInvois behaviour.
+
+The implemented intake pipeline is:
+
+```text
+HTTP upload
+  -> generated staging key
+  -> bounded streaming write
+  -> file validation and SHA-256
+  -> malware scanner boundary
+  -> accepted storage or quarantine
+  -> document metadata and audit event
+```
+
+Local storage and the development scanner are for development and automated tests only. Production storage and production malware scanning are still planned.
 
 ## Phase 1 Authentication Boundary
 
@@ -185,7 +221,7 @@ SQL Account
 
 LedgerPilot must not permanently depend on SQL Account. Future integration work should consider authentication, account retrieval, supplier retrieval, customer retrieval, tax-code retrieval, purchase invoice export, journal export, external document IDs, idempotency, retry behaviour, duplicate prevention, error recovery, and audit history.
 
-The SQL Account API is not implemented in Phase 0.
+The SQL Account API is not implemented.
 
 ## Malaysian Context Direction
 

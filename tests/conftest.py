@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Generator
 from dataclasses import dataclass
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -9,21 +10,29 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from ledgerpilot.api.app import create_app
-from ledgerpilot.core.config import AuthMode, Environment, Settings
+from ledgerpilot.core.config import AuthMode, Environment, MalwareScannerMode, Settings
 from ledgerpilot.identity.roles import Role
 from ledgerpilot.persistence.base import Base
 from ledgerpilot.persistence.models.identity import ClientEntity, Firm, FirmMembership, User
 from ledgerpilot.persistence.repositories.identity import IdentityRepository
 from ledgerpilot.persistence.session import create_engine_from_settings, create_session_factory
+from ledgerpilot.storage.local import LocalDocumentStorage
 
 
 @pytest.fixture
-def settings() -> Settings:
+def storage_root(tmp_path: Path) -> Path:
+    return tmp_path / "local_storage"
+
+
+@pytest.fixture
+def settings(storage_root: Path) -> Settings:
     return Settings(
         env=Environment.TEST,
         database_url="sqlite+pysqlite:///:memory:",
         auth_mode=AuthMode.DEVELOPMENT,
         dev_auth_enabled=True,
+        document_storage_root=str(storage_root),
+        malware_scanner_mode=MalwareScannerMode.DEVELOPMENT,
     )
 
 
@@ -53,8 +62,21 @@ def db_session(session_factory: sessionmaker[Session]) -> Generator[Session]:
 
 
 @pytest.fixture
-def app(settings: Settings, session_factory: sessionmaker[Session]):
-    return create_app(settings=settings, session_factory=session_factory)
+def document_storage(storage_root: Path) -> LocalDocumentStorage:
+    return LocalDocumentStorage(storage_root)
+
+
+@pytest.fixture
+def app(
+    settings: Settings,
+    session_factory: sessionmaker[Session],
+    document_storage: LocalDocumentStorage,
+):
+    return create_app(
+        settings=settings,
+        session_factory=session_factory,
+        document_storage=document_storage,
+    )
 
 
 @pytest.fixture

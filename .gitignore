@@ -19,8 +19,8 @@ env/
 .env
 .env.*
 !.env.example
-credentials/
-secrets/
+/credentials/
+/secrets/
 *.pem
 *.key
 *.p12
@@ -33,12 +33,12 @@ secrets/
 dist/
 build/
 site/
-uploads/
-documents/
-storage/
-local_storage/
-exports/
-generated/
+/uploads/
+/documents/
+/storage/
+/local_storage/
+/exports/
+/generated/
 
 # Editors and OS files
 .DS_Store

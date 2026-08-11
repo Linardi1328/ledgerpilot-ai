@@ -1,6 +1,6 @@
 # LedgerPilot AI
 
-**Current status: Phase 1 — Core Infrastructure (review branch)**
+**Current status: Phase 2 — Secure Document Intake (review branch)**
 
 LedgerPilot AI is a planned accounting automation assistant for reducing repetitive bookkeeping and accounting work while preserving deterministic accounting controls, traceability, and human review.
 
@@ -84,9 +84,30 @@ Initial MVP scope includes synthetic purchase invoices, manual structured input,
 
 See [Role and Permission Model](docs/ROLE_PERMISSION_MODEL.md).
 
+## Implemented Through Phase 2
+
+The Phase 2 review branch establishes the secure document-intake boundary:
+
+- FastAPI application factory and `/api/v1` routing.
+- Typed Pydantic settings with guarded environment/auth/storage/scanner configuration.
+- PostgreSQL-targeted SQLAlchemy 2.x persistence and Alembic migrations.
+- Firm, user, membership, client, client-access, audit-event, document, and document-file primitives.
+- Development-only authentication boundary backed by persisted memberships.
+- RBAC role and permission definitions aligned with Phase 0.
+- Tenant/client-scoped repository access patterns.
+- Health/readiness endpoints.
+- Safe structured API errors and request correlation IDs.
+- Secure upload endpoint for PDF, JPEG, and PNG documents.
+- Protected safe document-metadata endpoint.
+- Bounded streaming upload, size enforcement, SHA-256 hashing, filename validation, MIME/signature/extension checks, staging, quarantine, accepted storage, and audit events.
+- Provider-independent document-storage and malware-scanner boundaries with local development/test implementations only.
+- GitHub Actions CI quality gate.
+
+Phase 2 does not implement invoice extraction, OCR, AI providers, accounting recommendations, journals, review queues, bank reconciliation, SQL Account, MyInvois, frontend work, production authentication, production object storage, production malware scanning, or production deployment.
+
 ## Planned Capabilities
 
-- Secure document intake.
+- Production-grade document storage, malware scanning, retention, and secure retrieval.
 - OCR and structured extraction through provider-independent interfaces.
 - Required-field and arithmetic validation.
 - Duplicate-document detection.
@@ -152,25 +173,26 @@ SQLAccountGateway
 SQL Account
 ```
 
-LedgerPilot must not permanently depend on SQL Account. Phase 0 does not implement the SQL Account API.
+LedgerPilot must not permanently depend on SQL Account. The SQL Account API is not implemented.
 
-## Implemented Infrastructure in Phase 1
+## Secure Document Intake
 
-The Phase 1 review branch establishes backend infrastructure only:
+Supported Phase 2 upload formats are deliberately limited:
 
-- FastAPI application factory and `/api/v1` routing.
-- Typed Pydantic settings with guarded environment/auth configuration.
-- PostgreSQL-targeted SQLAlchemy 2.x persistence foundation.
-- Alembic migration for infrastructure tables only.
-- Firm, user, membership, client, client-access, and audit-event primitives.
-- Development-only authentication boundary backed by persisted memberships.
-- RBAC role and permission definitions aligned with Phase 0.
-- Tenant/client-scoped repository access patterns.
-- Health/readiness endpoints.
-- Safe structured API errors and request correlation IDs.
-- GitHub Actions CI quality gate.
+- PDF: `application/pdf`, `%PDF-` signature, `.pdf` extension.
+- JPEG: `image/jpeg`, JPEG start signature, `.jpg` or `.jpeg` extension.
+- PNG: `image/png`, PNG magic bytes, `.png` extension.
 
-Phase 1 does not implement invoice processing, document upload/storage, OCR, AI providers, accounting recommendations, journals, review queues, bank reconciliation, SQL Account, MyInvois, frontend work, or production deployment.
+The upload boundary treats every file as untrusted binary input. Submitted filenames are metadata only and are never used as storage paths. Uploads are streamed in bounded chunks, rejected if empty or larger than `LEDGERPILOT_DOCUMENT_MAX_BYTES`, hashed with SHA-256, checked for declared MIME/signature/extension consistency, scanned through the malware-scanner boundary, and either promoted to accepted storage or quarantined/fail-closed.
+
+The implemented endpoints are:
+
+- `POST /api/v1/clients/{client_id}/documents`
+- `GET /api/v1/clients/{client_id}/documents/{document_id}`
+
+There is no raw document download endpoint in Phase 2.
+
+Local filesystem storage and the deterministic development malware scanner are for local development and automated tests only. They are not production storage or production malware protection. See [Document Intake Security](docs/DOCUMENT_INTAKE_SECURITY.md).
 
 ## Proposed Technology
 
@@ -213,6 +235,8 @@ ledgerpilot-ai/
 │   ├── ACCEPTANCE_CRITERIA.md
 │   ├── ACCOUNTING_PRINCIPLES.md
 │   ├── ARCHITECTURE.md
+│   ├── DEVELOPMENT.md
+│   ├── DOCUMENT_INTAKE_SECURITY.md
 │   ├── DOMAIN_MODEL.md
 │   ├── GLOSSARY.md
 │   ├── MVP_SCOPE.md
@@ -260,6 +284,15 @@ Start local PostgreSQL:
 
 ```bash
 docker compose up -d postgres
+```
+
+Configure local-only document intake:
+
+```bash
+export LEDGERPILOT_DOCUMENT_STORAGE_BACKEND=local
+export LEDGERPILOT_DOCUMENT_STORAGE_ROOT=local_storage
+export LEDGERPILOT_MALWARE_SCANNER_MODE=development
+export LEDGERPILOT_DOCUMENT_MAX_BYTES=10485760
 ```
 
 Apply migrations:
@@ -356,6 +389,7 @@ See [Roadmap](docs/ROADMAP.md).
 - [Architecture](docs/ARCHITECTURE.md)
 - [Accounting-Control Principles](docs/ACCOUNTING_PRINCIPLES.md)
 - [Security Requirements](docs/SECURITY.md)
+- [Document Intake Security](docs/DOCUMENT_INTAKE_SECURITY.md)
 - [Privacy Requirements](docs/PRIVACY.md)
 - [Risk Register](docs/RISK_REGISTER.md)
 - [Roadmap](docs/ROADMAP.md)
@@ -365,7 +399,7 @@ See [Roadmap](docs/ROADMAP.md).
 
 ## Production-Readiness Disclaimer
 
-LedgerPilot AI is not production-ready. Phase 1 establishes backend infrastructure for review only. Production authentication, production deployment, document intake, OCR, AI recommendation engine, accounting automation, SQL Account integration, and MyInvois integration are not implemented.
+LedgerPilot AI is not production-ready. Phase 2 establishes backend infrastructure and a local-development secure document-intake boundary for review only. Production authentication, production deployment, production object storage, production malware scanning, OCR, AI recommendation engine, accounting automation, SQL Account integration, and MyInvois integration are not implemented.
 
 ## Accounting, Tax, and Legal Disclaimer
 
