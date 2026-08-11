@@ -64,6 +64,9 @@ jobs:
           alembic downgrade base
           alembic upgrade head
 
+      - name: PostgreSQL document constraint tests
+        run: python -m pytest tests/integration/test_postgresql_document_constraints.py
+
       - name: Pytest
         run: python -m pytest --cov=ledgerpilot --cov-report=term-missing
 

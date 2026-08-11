@@ -17,6 +17,15 @@ def test_app_creation(client: TestClient) -> None:
     assert response.status_code == 200
 
 
+def test_openapi_metadata_uses_phase_2_label(client: TestClient) -> None:
+    response = client.get("/openapi.json")
+
+    assert response.status_code == 200
+    description = response.json()["info"]["description"]
+    assert description == "Phase 2 secure document intake API. Not production-ready."
+    assert "Phase 1" not in description
+
+
 def test_liveness(client: TestClient) -> None:
     response = client.get("/api/v1/health/live")
     assert response.json() == {"status": "ok"}

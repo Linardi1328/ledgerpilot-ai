@@ -44,6 +44,8 @@ DOC, DOCX, XLS, XLSX, ZIP, archive, executable, and macro-enabled formats remain
 
 Signature validation only confirms initial format compatibility. It does not prove a file is harmless.
 
+The 10 MiB setting is an application-level accepted-file limit enforced while LedgerPilot consumes FastAPI's `UploadFile`. Multipart parsing and spooling occur before the route service reads the file, so production deployments still need upstream/pre-parser request-body limits at the web server, gateway, or platform layer.
+
 ## Storage
 
 Phase 2 defines a narrow storage provider boundary and implements only local filesystem storage for development and tests.
@@ -102,4 +104,4 @@ LedgerPilot does not claim distributed atomicity between PostgreSQL and filesyst
 
 ## Deferred Production Controls
 
-Before production use, LedgerPilot needs production authentication, production object storage, real malware scanning, encryption-at-rest review, retention/deletion policy, access logging, secure download design, rate limiting, monitoring, backup/restore testing, and incident response procedures.
+Before production use, LedgerPilot needs production authentication, production object storage, real malware scanning, upstream/pre-parser request-body limits, encryption-at-rest review, retention/deletion policy, access logging, secure download design, rate limiting, monitoring, backup/restore testing, and incident response procedures.

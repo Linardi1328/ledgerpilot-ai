@@ -20,6 +20,12 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    with op.batch_alter_table("firm_memberships") as batch_op:
+        batch_op.create_unique_constraint(
+            "uq_firm_memberships_id_user_firm_id",
+            ["id", "user_id", "firm_id"],
+        )
+
     op.create_table(
         "documents",
         sa.Column("id", sa.Uuid(), nullable=False),
@@ -66,11 +72,10 @@ def upgrade() -> None:
         ),
         sa.ForeignKeyConstraint(["firm_id"], ["firms.id"]),
         sa.ForeignKeyConstraint(
-            ["submitted_by_membership_id", "firm_id"],
-            ["firm_memberships.id", "firm_memberships.firm_id"],
-            name="fk_documents_submitter_membership_firm",
+            ["submitted_by_membership_id", "submitted_by_user_id", "firm_id"],
+            ["firm_memberships.id", "firm_memberships.user_id", "firm_memberships.firm_id"],
+            name="fk_documents_submitter_membership_user_firm",
         ),
-        sa.ForeignKeyConstraint(["submitted_by_user_id"], ["users.id"]),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("id", "firm_id", "client_id", name="uq_documents_id_firm_client"),
     )
@@ -143,3 +148,8 @@ def downgrade() -> None:
     op.drop_index("ix_documents_firm_client_status", table_name="documents")
     op.drop_index("ix_documents_client_id", table_name="documents")
     op.drop_table("documents")
+    with op.batch_alter_table("firm_memberships") as batch_op:
+        batch_op.drop_constraint(
+            "uq_firm_memberships_id_user_firm_id",
+            type_="unique",
+        )

@@ -46,9 +46,9 @@ class Document(Base):
             name="fk_documents_client_firm",
         ),
         ForeignKeyConstraint(
-            ["submitted_by_membership_id", "firm_id"],
-            ["firm_memberships.id", "firm_memberships.firm_id"],
-            name="fk_documents_submitter_membership_firm",
+            ["submitted_by_membership_id", "submitted_by_user_id", "firm_id"],
+            ["firm_memberships.id", "firm_memberships.user_id", "firm_memberships.firm_id"],
+            name="fk_documents_submitter_membership_user_firm",
         ),
     )
 
@@ -56,7 +56,7 @@ class Document(Base):
     firm_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("firms.id"), nullable=False, index=True)
     client_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False, index=True)
     submitted_by_user_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("users.id"),
+        Uuid(as_uuid=True),
         nullable=False,
         index=True,
     )

@@ -19,8 +19,8 @@ env/
 .env
 .env.*
 !.env.example
-/credentials/
-/secrets/
+credentials/
+secrets/
 *.pem
 *.key
 *.p12
@@ -33,12 +33,20 @@ env/
 dist/
 build/
 site/
-/uploads/
-/documents/
-/storage/
-/local_storage/
-/exports/
-/generated/
+uploads/
+documents/
+storage/
+local_storage/
+exports/
+generated/
+!src/ledgerpilot/documents/
+!src/ledgerpilot/documents/**
+!src/ledgerpilot/storage/
+!src/ledgerpilot/storage/**
+src/ledgerpilot/documents/**/__pycache__/
+src/ledgerpilot/documents/**/*.py[cod]
+src/ledgerpilot/storage/**/__pycache__/
+src/ledgerpilot/storage/**/*.py[cod]
 
 # Editors and OS files
 .DS_Store
