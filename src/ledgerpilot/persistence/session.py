@@ -30,6 +30,7 @@ def create_engine_from_settings(settings: Settings) -> Engine:
     engine = create_engine(
         settings.database_url,
         future=True,
+        hide_parameters=True,
         pool_pre_ping=True,
         connect_args=connect_args,
         **engine_kwargs,

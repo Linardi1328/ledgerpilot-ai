@@ -53,7 +53,6 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.VIEW_CONTEXT,
             Permission.UPLOAD_DOCUMENTS,
             Permission.VIEW_DOCUMENTS,
-            Permission.REQUEST_INFORMATION,
         }
     ),
     Role.AUDITOR: frozenset(

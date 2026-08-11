@@ -70,6 +70,48 @@ def test_audit_service_rejects_sensitive_metadata_keys(
         )
 
 
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        {"access_token": "not-allowed"},
+        {"database_password": "not-allowed"},
+        {"secret_key": "not-allowed"},
+        {"nested": [{"refresh_token": "not-allowed"}]},
+        {"nested": ({"private_key": "not-allowed"},)},
+    ],
+)
+def test_audit_service_rejects_sensitive_metadata_key_variants_and_nested_containers(
+    db_session: Session,
+    identity_seed: IdentitySeed,
+    metadata: dict[str, object],
+) -> None:
+    service = AuditService(db_session)
+    with pytest.raises(UnsafeAuditMetadataError):
+        service.record_event(
+            firm_id=identity_seed.firm_a.id,
+            event_type=AuditEventType.INFRASTRUCTURE_EVENT.value,
+            target_type="test",
+            target_id="synthetic-target",
+            metadata=metadata,
+        )
+
+
+def test_audit_service_preserves_safe_nested_metadata_containers(
+    db_session: Session,
+    identity_seed: IdentitySeed,
+) -> None:
+    service = AuditService(db_session)
+    event = service.record_event(
+        firm_id=identity_seed.firm_a.id,
+        event_type=AuditEventType.INFRASTRUCTURE_EVENT.value,
+        target_type="test",
+        target_id="synthetic-target",
+        metadata={"checks": [{"result": "ok"}, ({"status": "safe"},)]},
+    )
+
+    assert event.metadata_json == {"checks": [{"result": "ok"}, [{"status": "safe"}]]}
+
+
 def test_audit_service_exposes_no_update_or_delete_interface(db_session: Session) -> None:
     service = AuditService(db_session)
     repository = AuditRepository(db_session)

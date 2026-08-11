@@ -68,7 +68,13 @@ async def validation_error_handler(request: Request, exc: Exception) -> JSONResp
 async def sqlalchemy_error_handler(request: Request, exc: Exception) -> JSONResponse:
     if not isinstance(exc, SQLAlchemyError):
         raise exc
-    logger.exception("Database error", extra={"request_id": get_request_id(request)})
+    logger.error(
+        "Database error",
+        extra={
+            "request_id": get_request_id(request),
+            "exception_type": type(exc).__name__,
+        },
+    )
     return JSONResponse(
         status_code=500,
         content=error_payload("server_error", "Internal server error.", get_request_id(request)),

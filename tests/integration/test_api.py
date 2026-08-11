@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import StatementError
 from sqlalchemy.orm import sessionmaker
 
 from ledgerpilot.api.app import create_app
@@ -66,6 +69,34 @@ def test_structured_not_found_error(client: TestClient) -> None:
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "not_found"
     assert response.json()["error"]["request_id"] == response.headers[REQUEST_ID_HEADER]
+
+
+def test_database_errors_do_not_leak_sql_parameter_values_to_response_or_logs(
+    settings: Settings,
+    session_factory: sessionmaker,
+    caplog,
+) -> None:
+    app = create_app(settings=settings, session_factory=session_factory)
+
+    @app.get("/api/v1/test-database-error")
+    def raise_database_error() -> None:
+        raise StatementError(
+            "synthetic database failure",
+            "select :client_name",
+            {"client_name": "Synthetic Sensitive Client"},
+            Exception("driver failure"),
+            hide_parameters=False,
+        )
+
+    with caplog.at_level(logging.ERROR, logger="ledgerpilot.api.errors"):
+        with TestClient(app) as test_client:
+            response = test_client.get("/api/v1/test-database-error")
+
+    assert response.status_code == 500
+    assert response.json()["error"]["code"] == "server_error"
+    assert "Synthetic Sensitive Client" not in response.text
+    assert "Synthetic Sensitive Client" not in caplog.text
+    assert "select :client_name" not in caplog.text
 
 
 def test_protected_context_denies_unauthenticated_access(client: TestClient) -> None:

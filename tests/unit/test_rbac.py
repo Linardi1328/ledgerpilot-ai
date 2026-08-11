@@ -46,5 +46,6 @@ def test_auditor_remains_read_only() -> None:
 def test_client_submitter_has_restricted_access() -> None:
     submitter = _principal(Role.CLIENT_SUBMITTER)
     assert has_permission(submitter, Permission.UPLOAD_DOCUMENTS)
+    assert not has_permission(submitter, Permission.REQUEST_INFORMATION)
     assert not has_permission(submitter, Permission.VIEW_AUDIT_HISTORY)
     assert not has_permission(submitter, Permission.MANAGE_CONFIGURATION)

@@ -129,7 +129,11 @@ def upgrade() -> None:
         sa.Column("request_id", sa.String(length=128), nullable=True),
         sa.Column("metadata", sa.JSON(), nullable=False),
         sa.ForeignKeyConstraint(["actor_user_id"], ["users.id"]),
-        sa.ForeignKeyConstraint(["client_id"], ["client_entities.id"]),
+        sa.ForeignKeyConstraint(
+            ["client_id", "firm_id"],
+            ["client_entities.id", "client_entities.firm_id"],
+            name="fk_audit_events_client_firm",
+        ),
         sa.ForeignKeyConstraint(["firm_id"], ["firms.id"]),
         sa.PrimaryKeyConstraint("id"),
     )

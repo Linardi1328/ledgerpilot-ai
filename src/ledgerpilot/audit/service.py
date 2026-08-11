@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any
@@ -26,19 +27,35 @@ SENSITIVE_METADATA_KEYS = frozenset(
 )
 
 
+def _metadata_key_is_sensitive(key: str) -> bool:
+    normalized = re.sub(r"[^a-z0-9]+", "_", key.casefold()).strip("_")
+    compact = normalized.replace("_", "")
+    return any(
+        sensitive_key in normalized or sensitive_key.replace("_", "") in compact
+        for sensitive_key in SENSITIVE_METADATA_KEYS
+    )
+
+
 class UnsafeAuditMetadataError(ValueError):
     pass
+
+
+def _validate_metadata_value(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return _validate_metadata(value)
+    if isinstance(value, list):
+        return [_validate_metadata_value(item) for item in value]
+    if isinstance(value, tuple):
+        return [_validate_metadata_value(item) for item in value]
+    return value
 
 
 def _validate_metadata(metadata: Mapping[str, Any]) -> dict[str, Any]:
     safe_metadata: dict[str, Any] = {}
     for key, value in metadata.items():
-        if key.lower() in SENSITIVE_METADATA_KEYS:
+        if _metadata_key_is_sensitive(key):
             raise UnsafeAuditMetadataError(f"audit metadata key is not allowed: {key}")
-        if isinstance(value, Mapping):
-            safe_metadata[key] = _validate_metadata(value)
-        else:
-            safe_metadata[key] = value
+        safe_metadata[key] = _validate_metadata_value(value)
     return safe_metadata
 
 

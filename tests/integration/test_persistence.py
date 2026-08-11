@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import pytest
+from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from ledgerpilot.audit.service import AuditService
+from ledgerpilot.audit.types import AuditEventType
 from ledgerpilot.identity.roles import Role
 from ledgerpilot.persistence.repositories.identity import IdentityRepository
 from tests.conftest import IdentitySeed
@@ -18,6 +21,10 @@ def test_session_rollback_works(db_session: Session) -> None:
 
     assert repository.get_client_for_firm(firm_id=firm_id, client_id=firm_id) is None
     assert db_session.get(type(firm), firm_id) is None
+
+
+def test_configured_engine_hides_sqlalchemy_parameter_values(engine: Engine) -> None:
+    assert engine.hide_parameters
 
 
 def test_unique_external_subject_constraint(db_session: Session) -> None:
@@ -38,6 +45,22 @@ def test_foreign_key_ownership_constraint_blocks_cross_firm_client_access(
         firm_id=identity_seed.firm_a.id,
         client_id=identity_seed.firm_b_client.id,
     )
+    with pytest.raises(IntegrityError):
+        db_session.flush()
+
+
+def test_audit_event_ownership_constraint_blocks_cross_firm_client_reference(
+    db_session: Session,
+    identity_seed: IdentitySeed,
+) -> None:
+    AuditService(db_session).record_event(
+        firm_id=identity_seed.firm_a.id,
+        client_id=identity_seed.firm_b_client.id,
+        event_type=AuditEventType.INFRASTRUCTURE_EVENT.value,
+        target_type="test",
+        target_id="cross-firm-client-reference",
+    )
+
     with pytest.raises(IntegrityError):
         db_session.flush()
 
