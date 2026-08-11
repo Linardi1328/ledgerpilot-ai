@@ -3,7 +3,13 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from ledgerpilot.core.config import AuthMode, Environment, Settings
+from ledgerpilot.core.config import (
+    AuthMode,
+    DocumentStorageBackend,
+    Environment,
+    MalwareScannerMode,
+    Settings,
+)
 
 
 def test_development_settings_default_to_dev_auth_disabled(
@@ -51,4 +57,20 @@ def test_development_auth_is_rejected_in_production() -> None:
             env=Environment.PRODUCTION,
             auth_mode=AuthMode.DEVELOPMENT,
             dev_auth_enabled=True,
+        )
+
+
+def test_development_malware_scanner_is_rejected_in_production() -> None:
+    with pytest.raises(ValidationError):
+        Settings(
+            env=Environment.PRODUCTION,
+            malware_scanner_mode=MalwareScannerMode.DEVELOPMENT,
+        )
+
+
+def test_local_document_storage_is_rejected_in_production() -> None:
+    with pytest.raises(ValidationError):
+        Settings(
+            env=Environment.PRODUCTION,
+            document_storage_backend=DocumentStorageBackend.LOCAL,
         )

@@ -64,6 +64,12 @@ class FirmMembership(Base):
             "role in ('firm_admin', 'accountant', 'senior_reviewer', 'client_submitter', 'auditor')"
         ),
         UniqueConstraint("id", "firm_id", name="uq_firm_memberships_id_firm_id"),
+        UniqueConstraint(
+            "id",
+            "user_id",
+            "firm_id",
+            name="uq_firm_memberships_id_user_firm_id",
+        ),
         UniqueConstraint("user_id", "firm_id", name="uq_firm_memberships_user_firm"),
     )
 

@@ -12,12 +12,18 @@ from ledgerpilot.core.config import Settings, get_settings
 from ledgerpilot.core.logging import configure_logging
 from ledgerpilot.identity.authentication import AuthenticationBackend, get_authentication_backend
 from ledgerpilot.persistence.session import create_engine_from_settings, create_session_factory
+from ledgerpilot.scanning.development import get_malware_scanner
+from ledgerpilot.scanning.protocol import MalwareScanner
+from ledgerpilot.storage.local import get_document_storage
+from ledgerpilot.storage.protocol import DocumentStorage
 
 
 def create_app(
     settings: Settings | None = None,
     session_factory: sessionmaker[Session] | None = None,
     auth_backend: AuthenticationBackend | None = None,
+    document_storage: DocumentStorage | None = None,
+    malware_scanner: MalwareScanner | None = None,
 ) -> FastAPI:
     app_settings = settings or get_settings()
     configure_logging(app_settings.log_level)
@@ -30,12 +36,14 @@ def create_app(
     app = FastAPI(
         title="LedgerPilot AI",
         version=__version__,
-        description="Phase 1 core infrastructure API. Not production-ready.",
+        description="Phase 2 secure document intake API. Not production-ready.",
     )
     app.state.settings = app_settings
     app.state.engine = engine
     app.state.session_factory = session_factory
     app.state.auth_backend = auth_backend or get_authentication_backend(app_settings)
+    app.state.document_storage = document_storage or get_document_storage(app_settings)
+    app.state.malware_scanner = malware_scanner or get_malware_scanner(app_settings)
 
     app.add_middleware(RequestIDMiddleware)
     register_error_handlers(app)

@@ -7,7 +7,7 @@ from sqlalchemy import engine_from_config, pool
 from alembic import context
 from ledgerpilot.core.config import Settings
 from ledgerpilot.persistence.base import Base
-from ledgerpilot.persistence.models import audit, identity
+from ledgerpilot.persistence.models import audit, documents, identity
 
 config = context.config
 
@@ -17,7 +17,7 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 # Keep imported modules referenced so SQLAlchemy metadata is populated for migrations.
-_MODEL_MODULES = (audit, identity)
+_MODEL_MODULES = (audit, documents, identity)
 
 
 def get_database_url() -> str:

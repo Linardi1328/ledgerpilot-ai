@@ -2,9 +2,9 @@
 
 ## Status
 
-**Current status: Phase 1 — Core Infrastructure (review branch)**
+**Current status: Phase 2 — Secure Document Intake (review branch)**
 
-Phase 1 is infrastructure only. It does not implement document upload, OCR, AI recommendations, accounting automation, SQL Account, MyInvois, or production deployment.
+Phase 2 implements secure document intake for local development and automated tests. It does not implement OCR, extraction, AI recommendations, accounting automation, review workflows, SQL Account, MyInvois, production authentication, production object storage, production malware scanning, or production deployment.
 
 ## Local Setup
 
@@ -83,6 +83,51 @@ The request may identify only a synthetic development subject and firm. Roles, p
 
 Production refuses development auth through settings validation. A future production identity provider or secure authentication implementation must replace it before production use.
 
+## Local Document Intake Configuration
+
+Phase 2 local document intake uses development-only storage and scanner implementations:
+
+```bash
+export LEDGERPILOT_DOCUMENT_STORAGE_BACKEND=local
+export LEDGERPILOT_DOCUMENT_STORAGE_ROOT=local_storage
+export LEDGERPILOT_MALWARE_SCANNER_MODE=development
+export LEDGERPILOT_DOCUMENT_MAX_BYTES=10485760
+```
+
+The local storage provider keeps files under:
+
+```text
+local_storage/
+├── staging/
+├── accepted/
+└── quarantine/
+```
+
+`local_storage/` is ignored by Git and must not be committed. The development scanner is deterministic and synthetic; it is not real malware protection and production refuses it through settings validation.
+
+The implemented Phase 2 endpoints are:
+
+```text
+POST /api/v1/clients/{client_id}/documents
+GET /api/v1/clients/{client_id}/documents/{document_id}
+```
+
+Supported formats are PDF, JPEG, and PNG only. There is no raw document download endpoint in Phase 2.
+
+Manual API testing requires synthetic persisted identity, firm, membership, client, and client-access records. The application does not seed users or clients automatically and must not create synthetic users during production startup.
+
+Example upload shape for a synthetic local file:
+
+```bash
+curl -X POST \
+  -H "X-LedgerPilot-Dev-Subject: dev-accountant" \
+  -H "X-LedgerPilot-Firm: <synthetic-firm-id>" \
+  -F "file=@synthetic.pdf;type=application/pdf" \
+  http://127.0.0.1:8000/api/v1/clients/<synthetic-client-id>/documents
+```
+
+Use only synthetic files. Do not upload or commit real invoices, receipts, statements, personal data, taxpayer identifiers, bank details, or credentials.
+
 ## Verification
 
 Run:
@@ -101,6 +146,8 @@ python -m build
 With local PostgreSQL running:
 
 ```bash
+alembic upgrade head
+alembic downgrade 0001_phase_1
 alembic upgrade head
 alembic downgrade base
 alembic upgrade head

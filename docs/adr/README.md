@@ -17,3 +17,6 @@ This directory records meaningful architecture and control decisions.
 | [0011](0011-tenant-scoped-repository-access.md) | Tenant-scoped repository access | Accepted |
 | [0012](0012-append-oriented-audit-event-foundation.md) | Append-oriented audit-event foundation | Accepted |
 | [0013](0013-github-actions-quality-gate.md) | GitHub Actions quality gate | Accepted |
+| [0014](0014-staged-document-intake-and-trust-boundary.md) | Staged document intake and trust boundary | Accepted |
+| [0015](0015-provider-independent-document-storage.md) | Provider-independent document storage | Accepted |
+| [0016](0016-malware-scanner-provider-boundary.md) | Malware scanner provider boundary | Accepted |

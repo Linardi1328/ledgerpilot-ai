@@ -7,7 +7,9 @@ from sqlalchemy.orm import Session
 
 from ledgerpilot.audit.service import AuditService
 from ledgerpilot.audit.types import AuditEventType
+from ledgerpilot.documents.states import DocumentStatus
 from ledgerpilot.identity.roles import Role
+from ledgerpilot.persistence.models.documents import Document
 from ledgerpilot.persistence.repositories.identity import IdentityRepository
 from tests.conftest import IdentitySeed
 
@@ -59,6 +61,70 @@ def test_audit_event_ownership_constraint_blocks_cross_firm_client_reference(
         event_type=AuditEventType.INFRASTRUCTURE_EVENT.value,
         target_type="test",
         target_id="cross-firm-client-reference",
+    )
+
+    with pytest.raises(IntegrityError):
+        db_session.flush()
+
+
+def test_document_ownership_constraint_blocks_cross_firm_client_reference(
+    db_session: Session,
+    identity_seed: IdentitySeed,
+) -> None:
+    db_session.add(
+        Document(
+            firm_id=identity_seed.firm_a.id,
+            client_id=identity_seed.firm_b_client.id,
+            submitted_by_user_id=identity_seed.accountant.id,
+            submitted_by_membership_id=identity_seed.accountant_membership.id,
+            status=DocumentStatus.UPLOADED.value,
+            submitted_filename="synthetic.pdf",
+        )
+    )
+
+    with pytest.raises(IntegrityError):
+        db_session.flush()
+
+
+def test_document_submitter_membership_must_belong_to_document_firm(
+    db_session: Session,
+    identity_seed: IdentitySeed,
+) -> None:
+    repository = IdentityRepository(db_session)
+    firm_b_membership = repository.add_membership(
+        user_id=identity_seed.outsider.id,
+        firm_id=identity_seed.firm_b.id,
+        role=Role.ACCOUNTANT.value,
+    )
+    db_session.flush()
+    db_session.add(
+        Document(
+            firm_id=identity_seed.firm_a.id,
+            client_id=identity_seed.client_a.id,
+            submitted_by_user_id=identity_seed.outsider.id,
+            submitted_by_membership_id=firm_b_membership.id,
+            status=DocumentStatus.UPLOADED.value,
+            submitted_filename="synthetic.pdf",
+        )
+    )
+
+    with pytest.raises(IntegrityError):
+        db_session.flush()
+
+
+def test_document_submitter_user_must_match_membership_user(
+    db_session: Session,
+    identity_seed: IdentitySeed,
+) -> None:
+    db_session.add(
+        Document(
+            firm_id=identity_seed.firm_a.id,
+            client_id=identity_seed.client_a.id,
+            submitted_by_user_id=identity_seed.accountant.id,
+            submitted_by_membership_id=identity_seed.admin_membership.id,
+            status=DocumentStatus.UPLOADED.value,
+            submitted_filename="same-firm-mismatched-submitters.pdf",
+        )
     )
 
     with pytest.raises(IntegrityError):

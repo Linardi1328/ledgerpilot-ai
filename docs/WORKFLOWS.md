@@ -1,6 +1,32 @@
 # Workflows and State Models
 
-This document describes planned workflows and states. It is conceptual future functionality unless explicitly stated otherwise. Phase 0 implements documentation and minimal Python tooling only.
+This document describes planned workflows and states. Phase 2 implements secure document intake only; OCR, extraction, accounting recommendation, review, export, SQL Account, and MyInvois processing remain future functionality.
+
+## Implemented Phase 2 Intake Flow
+
+```mermaid
+flowchart TD
+    A[Authenticated authorised upload] --> B[Generated staging key]
+    B --> C[Stream upload in bounded chunks]
+    C --> D{Size and filename valid?}
+    D -->|No| E[Validation failed and staged file removed]
+    D -->|Yes| F[Detect signature and compare MIME/extension]
+    F -->|Mismatch or unsupported| E
+    F -->|Valid| G[Calculate SHA-256]
+    G --> H[Development scanner boundary]
+    H -->|Clean| I[Promote to accepted storage]
+    H -->|Infected| J[Quarantine]
+    H -->|Error| K[Scan failed and quarantine when possible]
+    I --> L[Document status: stored]
+    J --> M[Document status: quarantined]
+    K --> N[Document status: scan_failed]
+    E --> O[Audit validation failure]
+    L --> P[Audit stored event]
+    M --> Q[Audit quarantine event]
+    N --> R[Audit scan failure]
+```
+
+Implemented metadata endpoints expose safe document metadata only. There is no document download endpoint in Phase 2.
 
 ## Overall Document Processing Flow
 
@@ -54,15 +80,20 @@ flowchart LR
     M --> N
 ```
 
-## Document States
+## Implemented Phase 2 Document States
 
 - Uploaded
-- Untrusted Upload Staging
 - Validating
 - Validation Failed
 - Malware Scan Pending
+- Scanning
+- Scan Failed
 - Quarantined
 - Stored
+- Rejected
+
+## Future Document States
+
 - Extraction Pending
 - Extracting
 - Extraction Failed

@@ -59,7 +59,7 @@ Dependencies:
 
 ## 3. Phase 1: Core Infrastructure
 
-Status: In review on `review/phase-01-infrastructure`; not complete until independently approved and merged.
+Status: Complete and merged into `main` after independent review.
 
 Objective: establish secure backend foundations without business automation.
 
@@ -95,6 +95,8 @@ Dependencies:
 
 ## 4. Phase 2: Secure Document Intake
 
+Status: In review on `review/phase-02-secure-document-intake`; not complete until independently approved and merged.
+
 Objective: accept and store synthetic supporting documents safely.
 
 Deliverables:
@@ -103,15 +105,20 @@ Deliverables:
 - File validation.
 - File-type allowlist.
 - File-size limits.
-- Malware scanning design/integration.
+- Malware-scanner abstraction with a guarded development/test implementation.
 - Quarantine workflow.
 - Controlled storage references.
+- Provider-independent storage boundary with local development/test storage.
+- Protected upload and metadata endpoints.
+- Document-intake audit events.
 
 Exit criteria:
 
 - Invalid files are rejected or quarantined.
 - Original-file traceability exists.
 - Uploads remain tenant/client scoped.
+- Migration and CI checks pass.
+- Independent review approves the Phase 2 pull request.
 
 Risks:
 

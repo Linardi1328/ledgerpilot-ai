@@ -12,6 +12,8 @@ from ledgerpilot.identity.authentication import AuthenticationBackend
 from ledgerpilot.identity.authorization import has_permission
 from ledgerpilot.identity.permissions import Permission
 from ledgerpilot.identity.principal import Principal
+from ledgerpilot.scanning.protocol import MalwareScanner
+from ledgerpilot.storage.protocol import DocumentStorage
 
 
 def get_settings(request: Request) -> Settings:
@@ -37,6 +39,14 @@ def get_current_principal(
 ) -> Principal:
     backend = cast(AuthenticationBackend, request.app.state.auth_backend)
     return backend.authenticate(request=request, session=session, settings=settings)
+
+
+def get_document_storage(request: Request) -> DocumentStorage:
+    return cast(DocumentStorage, request.app.state.document_storage)
+
+
+def get_malware_scanner(request: Request) -> MalwareScanner:
+    return cast(MalwareScanner, request.app.state.malware_scanner)
 
 
 def require_permission(permission: Permission) -> Callable[[Principal], Principal]:

@@ -8,7 +8,19 @@ from sqlalchemy import DateTime, create_engine, inspect
 from alembic import command
 from ledgerpilot.persistence.base import Base
 
-EXPECTED_PHASE_1_TABLES = {
+EXPECTED_PHASE_2_TABLES = {
+    "alembic_version",
+    "audit_events",
+    "client_access",
+    "client_entities",
+    "document_files",
+    "documents",
+    "firm_memberships",
+    "firms",
+    "users",
+}
+
+EXPECTED_TABLES_AFTER_PHASE_2_DOWNGRADE = {
     "alembic_version",
     "audit_events",
     "client_access",
@@ -23,6 +35,9 @@ EXPECTED_TIMEZONE_AWARE_TIMESTAMP_COLUMNS = {
     "client_access.created_at",
     "client_entities.created_at",
     "client_entities.updated_at",
+    "document_files.created_at",
+    "documents.created_at",
+    "documents.updated_at",
     "firm_memberships.created_at",
     "firms.created_at",
     "firms.updated_at",
@@ -48,11 +63,18 @@ def test_initial_migration_upgrade_downgrade_and_schema(
     engine = create_engine(database_url)
     try:
         tables = set(inspect(engine).get_table_names())
-        assert tables == EXPECTED_PHASE_1_TABLES
+        assert tables == EXPECTED_PHASE_2_TABLES
     finally:
         engine.dispose()
 
-    command.downgrade(config, "base")
+    command.downgrade(config, "0001_phase_1")
+    engine = create_engine(database_url)
+    try:
+        tables_after_downgrade = set(inspect(engine).get_table_names())
+        assert tables_after_downgrade == EXPECTED_TABLES_AFTER_PHASE_2_DOWNGRADE
+    finally:
+        engine.dispose()
+
     command.upgrade(config, "head")
 
 
