@@ -87,6 +87,7 @@ flowchart TB
         Val[File validation and malware scan]
         Core[Deterministic accounting controls]
         Review[Human review workflow]
+        Approved[Approved post-review integration boundary]
         Audit[Audit event recording]
     end
     subgraph Providers["External provider boundary - future"]
@@ -102,12 +103,13 @@ flowchart TB
     OCR --> Core
     AI --> Core
     Core --> Review
-    Review --> Audit
-    Core --> SQL
-    Core --> MY
+    Review --> Approved
+    Approved --> Audit
+    Approved --> SQL
+    Approved --> MY
 ```
 
-Provider output enters the application as untrusted input. Core accounting controls must remain deterministic and provider-independent.
+Provider output enters the application as untrusted input. Core accounting controls must remain deterministic and provider-independent. External accounting-platform and MyInvois/e-Invoice effects must be routed through an explicit approved post-review integration boundary; deterministic controls alone cannot trigger those effects.
 
 ## Provider-Independent Boundaries
 

@@ -6,27 +6,28 @@ This document describes planned workflows and states. It is conceptual future fu
 
 ```mermaid
 flowchart TD
-    A[Document submitted] --> B[Original file stored]
+    A[Document submitted] --> B[Untrusted upload staging / quarantine]
     B --> C[File validated]
     C --> D[Malware scan]
-    D --> E[Extraction performed]
-    E --> F[Field confidence retained]
-    F --> G[Required fields validated]
-    G --> H[Arithmetic validated]
-    H --> I[Duplicate detection]
-    I --> J[Supplier or customer matching]
-    J --> K[Accounting recommendation]
-    K --> L[Balanced journal suggestion]
-    L --> M[Risk assessment]
-    M --> N[Review routing]
-    N --> O[Accountant action]
-    O --> P{Senior review required?}
-    P -->|Yes| Q[Senior review]
-    P -->|No| R[Approval, correction, or rejection]
-    Q --> R
-    R --> S[Audit event]
-    S --> T[Future export]
-    T --> U[Future SQL Account / MyInvois processing]
+    D --> E[Secure accepted storage]
+    E --> F[Extraction performed]
+    F --> G[Field confidence retained]
+    G --> H[Required fields validated]
+    H --> I[Arithmetic validated]
+    I --> J[Duplicate detection]
+    J --> K[Supplier or customer matching]
+    K --> L[Accounting recommendation]
+    L --> M[Balanced journal suggestion]
+    M --> N[Risk assessment]
+    N --> O[Review routing]
+    O --> P[Accountant action]
+    P --> Q{Senior review required?}
+    Q -->|Yes| R[Senior review]
+    Q -->|No| S[Approval, correction, or rejection]
+    R --> S
+    S --> T[Audit event]
+    T --> U[Future export]
+    U --> V[Future SQL Account / MyInvois processing]
 ```
 
 ## Recommendation and Review Workflow
@@ -56,8 +57,11 @@ flowchart LR
 ## Document States
 
 - Uploaded
+- Untrusted Upload Staging
 - Validating
 - Validation Failed
+- Malware Scan Pending
+- Quarantined
 - Stored
 - Extraction Pending
 - Extracting
@@ -127,9 +131,12 @@ stateDiagram-v2
 
 | Transition | Actor | Permission | Preconditions | Validation | Audit event | Reversible? |
 | --- | --- | --- | --- | --- | --- | --- |
-| Upload -> Validating | Submitter, accountant, administrator | Upload documents | Tenant/client scope is authorised | File exists and metadata captured | Required | Yes, by rejection/archive |
+| Uploaded -> Untrusted Upload Staging | Submitter, accountant, administrator | Upload documents | Tenant/client scope is authorised | File exists and metadata captured | Required | Yes, by rejection/archive |
+| Untrusted Upload Staging -> Validating | System | File validation | Raw upload is staged outside accepted document storage | File is available for validation | Required | Yes, by rejection/quarantine |
 | Validating -> Validation Failed | System | File validation | File fails allowlist, size, or integrity checks | Deterministic file validation | Required | Yes, with replacement upload |
-| Validating -> Stored | System | File validation | File passes validation and malware scan | Allowlist, size, malware result | Required | No silent deletion; archive under retention |
+| Validating -> Malware Scan Pending | System | File validation | File passes allowlist, size, and integrity checks | Validation result retained | Required | Yes, by rejection/quarantine |
+| Malware Scan Pending -> Quarantined | System | File validation | Malware scan reports suspicious or unsafe content | Malware result retained | Required | Yes, by authorised security review or replacement upload |
+| Malware Scan Pending -> Stored | System | File validation | Malware scan passes and tenant/client metadata is valid | Allowlist, size, integrity, and malware result retained | Required | No silent deletion; archive under retention |
 | Stored -> Extraction Pending | System | Extraction scheduling | File stored and associated to tenant/client | Document type supported | Required | Yes, cancel/retry |
 | Extraction Pending -> Extracting | System | Extraction execution | Work item available | Provider availability | Required | Retryable |
 | Extracting -> Extraction Failed | System | Extraction execution | Extraction error or timeout | Error recorded | Required | Yes, retry or manual entry |
