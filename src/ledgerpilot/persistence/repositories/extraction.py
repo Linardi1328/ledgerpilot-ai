@@ -102,6 +102,28 @@ class ExtractionRepository:
         )
         return self._session.scalar(statement)
 
+    def lock_field_for_correction(
+        self,
+        *,
+        firm_id: UUID,
+        client_id: UUID,
+        document_id: UUID,
+        run_id: UUID,
+        field_id: UUID,
+    ) -> ExtractedField | None:
+        statement = (
+            select(ExtractedField)
+            .where(
+                ExtractedField.id == field_id,
+                ExtractedField.extraction_run_id == run_id,
+                ExtractedField.firm_id == firm_id,
+                ExtractedField.client_id == client_id,
+                ExtractedField.document_id == document_id,
+            )
+            .with_for_update()
+        )
+        return self._session.scalar(statement)
+
     def list_corrections_for_run(
         self,
         *,

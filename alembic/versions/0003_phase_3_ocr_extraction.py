@@ -53,7 +53,7 @@ def upgrade() -> None:
         sa.CheckConstraint(
             "failure_code is null or failure_code in ("
             "'source_not_eligible', 'source_file_missing', 'provider_disabled', "
-            "'provider_failed', 'invalid_provider_output'"
+            "'provider_failed', 'invalid_provider_output', 'persistence_failed'"
             ")",
             name="ck_extraction_runs_failure_code",
         ),

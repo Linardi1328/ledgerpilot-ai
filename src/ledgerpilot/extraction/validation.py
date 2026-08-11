@@ -7,6 +7,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from ledgerpilot.extraction.types import (
+    ExtractionProviderMetadata,
     ExtractionProviderResult,
     ExtractionValueType,
     ProviderExtractedField,
@@ -33,6 +34,17 @@ PROVIDER_CONTROLLED_PATH_PARTS = frozenset(
 
 class ProviderOutputValidationError(ValueError):
     pass
+
+
+def validate_provider_lineage(
+    *,
+    result_metadata: ExtractionProviderMetadata,
+    expected_metadata: ExtractionProviderMetadata,
+) -> None:
+    if result_metadata != expected_metadata:
+        raise ProviderOutputValidationError(
+            "provider result lineage does not match expected run lineage"
+        )
 
 
 def validate_provider_result(
@@ -131,13 +143,13 @@ def _validate_confidence(confidence: Decimal | str | None) -> Decimal | None:
         return None
     if isinstance(confidence, float):
         raise ProviderOutputValidationError("confidence must not be a float")
-    try:
-        parsed = Decimal(str(confidence))
-    except (InvalidOperation, ValueError) as exc:
-        raise ProviderOutputValidationError("confidence is invalid") from exc
+    parsed = _parse_finite_decimal(str(confidence), error_message="confidence is invalid")
     if parsed < Decimal("0") or parsed > Decimal("1"):
         raise ProviderOutputValidationError("confidence is out of range")
-    return parsed.quantize(Decimal("0.0001"))
+    try:
+        return parsed.quantize(Decimal("0.0001"))
+    except InvalidOperation as exc:
+        raise ProviderOutputValidationError("confidence is invalid") from exc
 
 
 def _validate_source_page_number(source_page_number: int | None) -> int | None:
@@ -181,10 +193,10 @@ def _validate_bbox(bbox: Any) -> None:
 
 
 def _parse_unit_decimal(value: str) -> Decimal:
-    try:
-        parsed = Decimal(value)
-    except InvalidOperation as exc:
-        raise ProviderOutputValidationError("source locator coordinate is invalid") from exc
+    parsed = _parse_finite_decimal(
+        value,
+        error_message="source locator coordinate is invalid",
+    )
     if parsed < Decimal("0") or parsed > Decimal("1"):
         raise ProviderOutputValidationError("source locator coordinate is out of range")
     return parsed
@@ -208,10 +220,17 @@ def _validate_normalized_value(
 
 
 def _parse_decimal(value: str) -> Decimal:
+    return _parse_finite_decimal(value, error_message="normalized decimal is invalid")
+
+
+def _parse_finite_decimal(value: str, *, error_message: str) -> Decimal:
     try:
-        return Decimal(value)
-    except InvalidOperation as exc:
-        raise ProviderOutputValidationError("normalized decimal is invalid") from exc
+        parsed = Decimal(value)
+    except (InvalidOperation, ValueError) as exc:
+        raise ProviderOutputValidationError(error_message) from exc
+    if not parsed.is_finite():
+        raise ProviderOutputValidationError(error_message)
+    return parsed
 
 
 def _parse_iso_date(value: str) -> date:

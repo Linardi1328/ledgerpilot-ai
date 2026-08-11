@@ -11,20 +11,39 @@ from ledgerpilot.extraction.types import (
 )
 from ledgerpilot.extraction.validation import (
     ProviderOutputValidationError,
+    validate_provider_lineage,
     validate_provider_result,
 )
 
 
 def _result(*fields: ProviderExtractedField) -> ExtractionProviderResult:
     return ExtractionProviderResult(
-        metadata=ExtractionProviderMetadata(
-            provider_name="development",
-            provider_version="0.1.0",
-            model_version=None,
-            extraction_schema_version="ledgerpilot.extraction.v1",
-        ),
+        metadata=_metadata(),
         fields=fields,
     )
+
+
+def _metadata(
+    *,
+    provider_name: str = "development",
+    provider_version: str = "0.1.0",
+    model_version: str | None = None,
+    extraction_schema_version: str = "ledgerpilot.extraction.v1",
+) -> ExtractionProviderMetadata:
+    return ExtractionProviderMetadata(
+        provider_name=provider_name,
+        provider_version=provider_version,
+        model_version=model_version,
+        extraction_schema_version=extraction_schema_version,
+    )
+
+
+def test_provider_lineage_metadata_must_match_authoritative_run_metadata() -> None:
+    with pytest.raises(ProviderOutputValidationError):
+        validate_provider_lineage(
+            result_metadata=_metadata(model_version="synthetic-other-model"),
+            expected_metadata=_metadata(model_version="synthetic-run-model"),
+        )
 
 
 def test_valid_provider_output_is_normalized_without_float_money() -> None:
@@ -89,6 +108,62 @@ def test_valid_provider_output_is_normalized_without_float_money() -> None:
     ],
 )
 def test_invalid_provider_output_is_rejected(field: ProviderExtractedField) -> None:
+    with pytest.raises(ProviderOutputValidationError):
+        validate_provider_result(_result(field), max_fields=10, max_value_chars=4000)
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        ProviderExtractedField(
+            field_path="invoice.total",
+            value_type="decimal",
+            raw_value="RM NaN",
+            normalized_value="NaN",
+        ),
+        ProviderExtractedField(
+            field_path="invoice.total",
+            value_type="decimal",
+            raw_value="RM Infinity",
+            normalized_value="Infinity",
+        ),
+        ProviderExtractedField(
+            field_path="invoice.total",
+            value_type="decimal",
+            raw_value="RM -Infinity",
+            normalized_value="-Infinity",
+        ),
+        ProviderExtractedField(
+            field_path="invoice.total",
+            value_type="decimal",
+            raw_value="RM 100.00",
+            normalized_value="100.00",
+            confidence=Decimal("NaN"),
+        ),
+        ProviderExtractedField(
+            field_path="invoice.total",
+            value_type="decimal",
+            raw_value="RM 100.00",
+            normalized_value="100.00",
+            confidence="Infinity",
+        ),
+        ProviderExtractedField(
+            field_path="invoice.total",
+            value_type="decimal",
+            raw_value="RM 100.00",
+            normalized_value="100.00",
+            source_locator={"bbox": {"x1": "NaN", "y1": "0", "x2": "1", "y2": "1"}},
+        ),
+        ProviderExtractedField(
+            field_path="invoice.total",
+            value_type="decimal",
+            raw_value="RM 100.00",
+            normalized_value="100.00",
+            source_locator={"bbox": {"x1": "0", "y1": "0", "x2": "Infinity", "y2": "1"}},
+        ),
+    ],
+)
+def test_non_finite_decimal_provider_values_are_rejected(field: ProviderExtractedField) -> None:
     with pytest.raises(ProviderOutputValidationError):
         validate_provider_result(_result(field), max_fields=10, max_value_chars=4000)
 

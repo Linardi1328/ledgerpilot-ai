@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import os
+import threading
+import time
 import uuid
 from collections.abc import Generator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
+from queue import Queue
 
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -25,6 +28,7 @@ from ledgerpilot.persistence.models.extraction import (
     ExtractionRun,
 )
 from ledgerpilot.persistence.models.identity import ClientEntity, Firm, FirmMembership, User
+from ledgerpilot.persistence.repositories.extraction import ExtractionRepository
 
 
 @dataclass(frozen=True)
@@ -179,6 +183,80 @@ def test_postgresql_enforces_extraction_tenant_file_field_and_correction_constra
                 confidence=Decimal("1.1000"),
             ),
         )
+
+
+def test_postgresql_serializes_simultaneous_correction_revision_allocation(
+    postgresql_engine: Engine,
+) -> None:
+    with Session(postgresql_engine, expire_on_commit=False) as session:
+        seed = _seed_postgresql_extraction_constraint_data(session)
+
+    first_locked = threading.Event()
+    outcomes: Queue[int | BaseException] = Queue()
+
+    def add_correction(label: str, *, hold_lock: bool = False) -> None:
+        try:
+            with Session(postgresql_engine, expire_on_commit=False) as session:
+                repository = ExtractionRepository(session)
+                locked_field = repository.lock_field_for_correction(
+                    firm_id=seed.firm_a.id,
+                    client_id=seed.client_a.id,
+                    document_id=seed.document_a.id,
+                    run_id=seed.run_a.id,
+                    field_id=seed.field_a.id,
+                )
+                assert locked_field is not None
+                if hold_lock:
+                    first_locked.set()
+                    time.sleep(0.75)
+                revision_number = repository.next_revision_number(field_id=locked_field.id)
+                repository.add_correction(
+                    ExtractionFieldCorrection(
+                        field_id=locked_field.id,
+                        extraction_run_id=locked_field.extraction_run_id,
+                        firm_id=locked_field.firm_id,
+                        client_id=locked_field.client_id,
+                        document_id=locked_field.document_id,
+                        corrected_by_user_id=seed.user_a.id,
+                        corrected_by_membership_id=seed.membership_a.id,
+                        revision_number=revision_number,
+                        corrected_raw_value=f"SYN-PG-CONCURRENT-{label}",
+                        corrected_value_type=ExtractionValueType.TEXT.value,
+                        reason=f"Synthetic concurrent correction {label}.",
+                    )
+                )
+                session.commit()
+                outcomes.put(revision_number)
+        except BaseException as exc:
+            outcomes.put(exc)
+
+    first = threading.Thread(target=add_correction, args=("first",), kwargs={"hold_lock": True})
+    second = threading.Thread(target=add_correction, args=("second",))
+
+    first.start()
+    assert first_locked.wait(timeout=5)
+    second.start()
+    first.join(timeout=10)
+    second.join(timeout=10)
+
+    assert not first.is_alive()
+    assert not second.is_alive()
+    results = [outcomes.get_nowait(), outcomes.get_nowait()]
+    errors = [result for result in results if isinstance(result, BaseException)]
+    assert errors == []
+    assert sorted(result for result in results if isinstance(result, int)) == [1, 2]
+
+    with Session(postgresql_engine, expire_on_commit=False) as session:
+        corrections = session.scalars(
+            select(ExtractionFieldCorrection)
+            .where(ExtractionFieldCorrection.field_id == seed.field_a.id)
+            .order_by(ExtractionFieldCorrection.revision_number.asc())
+        ).all()
+    assert [correction.revision_number for correction in corrections] == [1, 2]
+    assert [correction.corrected_raw_value for correction in corrections] == [
+        "SYN-PG-CONCURRENT-first",
+        "SYN-PG-CONCURRENT-second",
+    ]
 
 
 def _seed_postgresql_extraction_constraint_data(

@@ -8,6 +8,8 @@ from uuid import UUID
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select
+from sqlalchemy.engine import Engine
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from ledgerpilot.api.app import create_app
@@ -15,6 +17,7 @@ from ledgerpilot.api.middleware import REQUEST_ID_HEADER
 from ledgerpilot.audit.types import AuditEventType
 from ledgerpilot.core.config import Settings
 from ledgerpilot.documents.states import DocumentStatus
+from ledgerpilot.extraction.development import DevelopmentExtractionProvider
 from ledgerpilot.extraction.protocol import ExtractionRequestContext
 from ledgerpilot.extraction.types import (
     ExtractionProviderMetadata,
@@ -85,6 +88,73 @@ class InvalidExtractionProvider:
         )
 
 
+class LineageMismatchExtractionProvider:
+    @property
+    def metadata(self) -> ExtractionProviderMetadata:
+        return ExtractionProviderMetadata(
+            provider_name="synthetic_lineage_provider",
+            provider_version="0.1.0",
+            model_version="synthetic-model-a",
+            extraction_schema_version="ledgerpilot.extraction.v1",
+        )
+
+    def extract(
+        self,
+        *,
+        source_file: BinaryIO,
+        context: ExtractionRequestContext,
+    ) -> ExtractionProviderResult:
+        del source_file, context
+        return ExtractionProviderResult(
+            metadata=ExtractionProviderMetadata(
+                provider_name="synthetic_lineage_provider",
+                provider_version="0.2.0",
+                model_version="synthetic-model-b",
+                extraction_schema_version="ledgerpilot.extraction.v2",
+            ),
+            fields=(
+                ProviderExtractedField(
+                    field_path="invoice.number",
+                    value_type="text",
+                    raw_value="SYN-LINEAGE-001",
+                ),
+            ),
+        )
+
+
+class NonFiniteExtractionProvider:
+    @property
+    def metadata(self) -> ExtractionProviderMetadata:
+        return ExtractionProviderMetadata(
+            provider_name="synthetic_non_finite_provider",
+            provider_version="0.1.0",
+            model_version=None,
+            extraction_schema_version="ledgerpilot.extraction.v1",
+        )
+
+    def extract(
+        self,
+        *,
+        source_file: BinaryIO,
+        context: ExtractionRequestContext,
+    ) -> ExtractionProviderResult:
+        del source_file, context
+        return ExtractionProviderResult(
+            metadata=self.metadata,
+            fields=(
+                ProviderExtractedField(
+                    field_path="invoice.total",
+                    value_type="decimal",
+                    raw_value="RM NaN",
+                    normalized_value="NaN",
+                    confidence=Decimal("NaN"),
+                    source_page_number=1,
+                    source_locator={"bbox": {"x1": "0", "y1": "0", "x2": "1", "y2": "1"}},
+                ),
+            ),
+        )
+
+
 class SparseExtractionProvider:
     @property
     def metadata(self) -> ExtractionProviderMetadata:
@@ -121,6 +191,19 @@ class SparseExtractionProvider:
                 ),
             ),
         )
+
+
+class CommitFailingSession(Session):
+    commit_attempts = 0
+    rollback_called = False
+
+    def commit(self) -> None:
+        CommitFailingSession.commit_attempts += 1
+        raise SQLAlchemyError("synthetic extraction persistence failure")
+
+    def rollback(self) -> None:
+        CommitFailingSession.rollback_called = True
+        super().rollback()
 
 
 def _auth_headers(
@@ -461,6 +544,118 @@ def test_invalid_provider_output_fails_without_partial_fields(
     assert (
         db_session.scalars(
             select(ExtractedField).where(ExtractedField.extraction_run_id == run.id)
+        ).all()
+        == []
+    )
+
+
+def test_provider_lineage_mismatch_fails_without_successful_fields(
+    settings: Settings,
+    session_factory: sessionmaker[Session],
+    document_storage: LocalDocumentStorage,
+    db_session: Session,
+    identity_seed: IdentitySeed,
+) -> None:
+    with _create_app_with_provider(
+        settings=settings,
+        session_factory=session_factory,
+        document_storage=document_storage,
+        provider=LineageMismatchExtractionProvider(),
+    ) as invalid_client:
+        document_id = _upload_document(invalid_client, identity_seed)
+        response = _start_extraction(invalid_client, identity_seed, document_id=document_id)
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "invalid_provider_output"
+    run = db_session.scalars(
+        select(ExtractionRun).where(ExtractionRun.document_id == document_id)
+    ).one()
+    assert run.status == "failed"
+    assert run.failure_code == "invalid_provider_output"
+    assert run.provider_name == "synthetic_lineage_provider"
+    assert run.provider_version == "0.1.0"
+    assert (
+        db_session.scalars(
+            select(ExtractedField).where(ExtractedField.extraction_run_id == run.id)
+        ).all()
+        == []
+    )
+
+
+def test_non_finite_provider_output_is_invalid_output_not_provider_failure(
+    settings: Settings,
+    session_factory: sessionmaker[Session],
+    document_storage: LocalDocumentStorage,
+    db_session: Session,
+    identity_seed: IdentitySeed,
+) -> None:
+    with _create_app_with_provider(
+        settings=settings,
+        session_factory=session_factory,
+        document_storage=document_storage,
+        provider=NonFiniteExtractionProvider(),
+    ) as invalid_client:
+        document_id = _upload_document(invalid_client, identity_seed)
+        response = _start_extraction(invalid_client, identity_seed, document_id=document_id)
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "invalid_provider_output"
+    assert "provider_failed" not in response.text
+    run = db_session.scalars(
+        select(ExtractionRun).where(ExtractionRun.document_id == document_id)
+    ).one()
+    assert run.status == "failed"
+    assert run.failure_code == "invalid_provider_output"
+    assert (
+        db_session.scalars(
+            select(ExtractedField).where(ExtractedField.extraction_run_id == run.id)
+        ).all()
+        == []
+    )
+
+
+def test_extraction_commit_failure_rolls_back_without_provider_failure(
+    client: TestClient,
+    settings: Settings,
+    engine: Engine,
+    document_storage: LocalDocumentStorage,
+    db_session: Session,
+    identity_seed: IdentitySeed,
+) -> None:
+    document_id = _upload_document(client, identity_seed)
+    failing_session_factory = sessionmaker(
+        bind=engine,
+        autoflush=False,
+        expire_on_commit=False,
+        class_=CommitFailingSession,
+    )
+    CommitFailingSession.commit_attempts = 0
+    CommitFailingSession.rollback_called = False
+
+    with _create_app_with_provider(
+        settings=settings,
+        session_factory=failing_session_factory,
+        document_storage=document_storage,
+        provider=DevelopmentExtractionProvider(
+            extraction_schema_version=settings.extraction_schema_version,
+        ),
+    ) as failing_client:
+        response = _start_extraction(failing_client, identity_seed, document_id=document_id)
+
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "persistence_failed"
+    assert "provider_failed" not in response.text
+    assert CommitFailingSession.commit_attempts == 1
+    assert CommitFailingSession.rollback_called is True
+    assert (
+        db_session.scalars(
+            select(ExtractionRun).where(ExtractionRun.document_id == document_id)
+        ).all()
+        == []
+    )
+    assert (
+        db_session.scalars(
+            select(ExtractedField).where(ExtractedField.document_id == document_id)
         ).all()
         == []
     )

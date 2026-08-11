@@ -13,6 +13,7 @@ class ExtractionFailureCode(StrEnum):
     PROVIDER_DISABLED = "provider_disabled"
     PROVIDER_FAILED = "provider_failed"
     INVALID_PROVIDER_OUTPUT = "invalid_provider_output"
+    PERSISTENCE_FAILED = "persistence_failed"
 
 
 class ExtractionValueType(StrEnum):
