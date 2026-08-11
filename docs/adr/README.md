@@ -12,3 +12,8 @@ This directory records meaningful architecture and control decisions.
 | [0006](0006-immutable-accounting-history.md) | Immutable accounting history | Accepted |
 | [0007](0007-synthetic-data-only-development.md) | Synthetic-data-only development | Accepted |
 | [0008](0008-corrections-through-reversal-or-supersession.md) | Corrections through reversal or supersession | Accepted |
+| [0009](0009-postgresql-sqlalchemy-alembic-foundation.md) | PostgreSQL, SQLAlchemy, and Alembic foundation | Accepted |
+| [0010](0010-authentication-boundary-with-guarded-development-auth.md) | Authentication boundary with guarded development auth | Accepted |
+| [0011](0011-tenant-scoped-repository-access.md) | Tenant-scoped repository access | Accepted |
+| [0012](0012-append-oriented-audit-event-foundation.md) | Append-oriented audit-event foundation | Accepted |
+| [0013](0013-github-actions-quality-gate.md) | GitHub Actions quality gate | Accepted |
