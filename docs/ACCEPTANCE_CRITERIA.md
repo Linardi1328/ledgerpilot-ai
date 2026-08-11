@@ -1,6 +1,6 @@
 # MVP Acceptance Criteria
 
-These criteria describe measurable future MVP behaviour. They are not implemented in Phase 0.
+These criteria describe measurable MVP behaviour. Some infrastructure, intake, and extraction criteria are implemented through Phase 3; accounting recommendation, approval, export, and review criteria remain future work.
 
 | ID | Acceptance criterion | Evidence expected |
 | --- | --- | --- |
@@ -24,6 +24,10 @@ These criteria describe measurable future MVP behaviour. They are not implemente
 | AC-018 | Rejected work records a reason and cannot be exported. | Rejection workflow tests. |
 | AC-019 | Senior-review overrides require reason and attribution. | Override tests. |
 | AC-020 | Public repository examples, tests, and documentation do not include real client, bank, taxpayer, employee, or credential data. | Pre-push safety review. |
+| AC-021 | Extraction may consume only stored documents with accepted document files. | Source-eligibility tests. |
+| AC-022 | Provider output must pass structural validation before extracted fields are persisted. | Provider-output validation tests. |
+| AC-023 | Original extracted values are not overwritten by manual corrections. | Correction-history tests. |
+| AC-024 | Extraction corrections record actor, reason, revision, timestamp, and tenant/client scope. | Correction audit and persistence tests. |
 
 ## Validation Status
 

@@ -7,6 +7,7 @@ from ledgerpilot.core.config import (
     AuthMode,
     DocumentStorageBackend,
     Environment,
+    ExtractionProviderMode,
     MalwareScannerMode,
     Settings,
 )
@@ -61,7 +62,7 @@ def test_development_auth_is_rejected_in_production() -> None:
 
 
 def test_development_malware_scanner_is_rejected_in_production() -> None:
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match="development malware scanner"):
         Settings(
             env=Environment.PRODUCTION,
             malware_scanner_mode=MalwareScannerMode.DEVELOPMENT,
@@ -69,8 +70,16 @@ def test_development_malware_scanner_is_rejected_in_production() -> None:
 
 
 def test_local_document_storage_is_rejected_in_production() -> None:
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match="local document storage"):
         Settings(
             env=Environment.PRODUCTION,
             document_storage_backend=DocumentStorageBackend.LOCAL,
+        )
+
+
+def test_development_extraction_provider_is_rejected_in_production() -> None:
+    with pytest.raises(ValidationError, match="development extraction provider"):
+        Settings(
+            env=Environment.PRODUCTION,
+            extraction_provider=ExtractionProviderMode.DEVELOPMENT,
         )

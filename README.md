@@ -1,6 +1,6 @@
 # LedgerPilot AI
 
-**Current status: Phase 2 — Secure Document Intake (review branch)**
+**Current status: Phase 3 — OCR & Structured Extraction (review branch)**
 
 LedgerPilot AI is a planned accounting automation assistant for reducing repetitive bookkeeping and accounting work while preserving deterministic accounting controls, traceability, and human review.
 
@@ -84,9 +84,9 @@ Initial MVP scope includes synthetic purchase invoices, manual structured input,
 
 See [Role and Permission Model](docs/ROLE_PERMISSION_MODEL.md).
 
-## Implemented Through Phase 2
+## Implemented Through Phase 3
 
-The Phase 2 review branch establishes the secure document-intake boundary:
+The current review branch includes the Phase 1 infrastructure, Phase 2 secure document-intake boundary, and Phase 3 structured-extraction foundation:
 
 - FastAPI application factory and `/api/v1` routing.
 - Typed Pydantic settings with guarded environment/auth/storage/scanner configuration.
@@ -101,14 +101,21 @@ The Phase 2 review branch establishes the secure document-intake boundary:
 - Protected safe document-metadata endpoint.
 - Bounded streaming upload, size enforcement, SHA-256 hashing, filename validation, MIME/signature/extension checks, staging, quarantine, accepted storage, and audit events.
 - Provider-independent document-storage and malware-scanner boundaries with local development/test implementations only.
+- Provider-independent extraction boundary.
+- Guarded deterministic development extraction provider for tests and local development.
+- Extraction-run persistence with provider lineage, source document/file linkage, source SHA-256, status, failure code, and request ID.
+- Validated extracted-field persistence with field paths, original/effective values, confidence, source page, and optional source locator.
+- Append-only extracted-field correction history with actor attribution and revision numbers.
+- Protected extraction and correction endpoints.
+- Extraction audit events for start, success, failure, and correction.
 - GitHub Actions CI quality gate.
 
-Phase 2 does not implement invoice extraction, OCR, AI providers, accounting recommendations, journals, review queues, bank reconciliation, SQL Account, MyInvois, frontend work, production authentication, production object storage, production malware scanning, or production deployment.
+Phase 3 does not implement production OCR, AI providers, accounting recommendations, journals, review queues, bank reconciliation, SQL Account, MyInvois, frontend work, production authentication, production object storage, production malware scanning, or production deployment.
 
 ## Planned Capabilities
 
 - Production-grade document storage, malware scanning, retention, and secure retrieval.
-- OCR and structured extraction through provider-independent interfaces.
+- Production OCR provider integration.
 - Required-field and arithmetic validation.
 - Duplicate-document detection.
 - Supplier/customer matching.
@@ -190,9 +197,24 @@ The implemented endpoints are:
 - `POST /api/v1/clients/{client_id}/documents`
 - `GET /api/v1/clients/{client_id}/documents/{document_id}`
 
-There is no raw document download endpoint in Phase 2.
+There is no raw document download endpoint through Phase 3.
 
 Local filesystem storage and the deterministic development malware scanner are for local development and automated tests only. They are not production storage or production malware protection. See [Document Intake Security](docs/DOCUMENT_INTAKE_SECURITY.md).
+
+## Structured Extraction
+
+Phase 3 can run deterministic structured extraction against documents whose intake status is `stored` and whose source file is in accepted storage. Extraction does not consume staging or quarantine files.
+
+The implemented endpoints are:
+
+- `POST /api/v1/clients/{client_id}/documents/{document_id}/extractions`
+- `GET /api/v1/clients/{client_id}/documents/{document_id}/extractions`
+- `GET /api/v1/clients/{client_id}/documents/{document_id}/extractions/{run_id}`
+- `POST /api/v1/clients/{client_id}/documents/{document_id}/extractions/{run_id}/fields/{field_id}/corrections`
+
+The development extraction provider is deterministic synthetic test infrastructure. It is not real OCR and is not evidence of OCR accuracy. Provider output is treated as untrusted observations, structurally validated before persistence, and retained as original provider values. Corrections create append-only history and do not overwrite the original extraction.
+
+Extraction output stops at structured fields. It does not perform invoice arithmetic validation, supplier matching, accounting coding, tax recommendation, journal generation, approval routing, SQL Account export, or MyInvois submission. See [Extraction](docs/EXTRACTION.md).
 
 ## Proposed Technology
 
@@ -238,6 +260,7 @@ ledgerpilot-ai/
 │   ├── DEVELOPMENT.md
 │   ├── DOCUMENT_INTAKE_SECURITY.md
 │   ├── DOMAIN_MODEL.md
+│   ├── EXTRACTION.md
 │   ├── GLOSSARY.md
 │   ├── MVP_SCOPE.md
 │   ├── NON_FUNCTIONAL_REQUIREMENTS.md
@@ -293,6 +316,8 @@ export LEDGERPILOT_DOCUMENT_STORAGE_BACKEND=local
 export LEDGERPILOT_DOCUMENT_STORAGE_ROOT=local_storage
 export LEDGERPILOT_MALWARE_SCANNER_MODE=development
 export LEDGERPILOT_DOCUMENT_MAX_BYTES=10485760
+export LEDGERPILOT_EXTRACTION_PROVIDER=development
+export LEDGERPILOT_EXTRACTION_SCHEMA_VERSION=ledgerpilot.extraction.v1
 ```
 
 Apply migrations:
@@ -390,6 +415,7 @@ See [Roadmap](docs/ROADMAP.md).
 - [Accounting-Control Principles](docs/ACCOUNTING_PRINCIPLES.md)
 - [Security Requirements](docs/SECURITY.md)
 - [Document Intake Security](docs/DOCUMENT_INTAKE_SECURITY.md)
+- [Extraction](docs/EXTRACTION.md)
 - [Privacy Requirements](docs/PRIVACY.md)
 - [Risk Register](docs/RISK_REGISTER.md)
 - [Roadmap](docs/ROADMAP.md)
@@ -399,7 +425,7 @@ See [Roadmap](docs/ROADMAP.md).
 
 ## Production-Readiness Disclaimer
 
-LedgerPilot AI is not production-ready. Phase 2 establishes backend infrastructure and a local-development secure document-intake boundary for review only. Production authentication, production deployment, production object storage, production malware scanning, OCR, AI recommendation engine, accounting automation, SQL Account integration, and MyInvois integration are not implemented.
+LedgerPilot AI is not production-ready. Phase 3 establishes backend infrastructure, local-development secure document intake, and a deterministic structured-extraction foundation for review only. Production authentication, production deployment, production object storage, production malware scanning, production OCR, AI recommendation engine, accounting automation, SQL Account integration, and MyInvois integration are not implemented.
 
 ## Accounting, Tax, and Legal Disclaimer
 

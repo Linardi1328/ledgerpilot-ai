@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the architecture direction. Phase 2 implements secure document intake while preserving the Phase 0 modular-monolith direction.
+This document describes the architecture direction. Phase 3 implements structured extraction while preserving the Phase 0 modular-monolith direction.
 
 ## Architecture Style
 
@@ -36,7 +36,7 @@ Future optional components:
 - Cloud document-processing APIs.
 - Local machine-learning models.
 
-## Implemented Through Phase 2
+## Implemented Through Phase 3
 
 - Documentation.
 - Repository policy.
@@ -67,6 +67,13 @@ Future optional components:
 - Provider-independent malware scanner boundary.
 - Deterministic development/test scanner with production guard.
 - Document intake audit events.
+- Provider-independent extraction provider boundary.
+- Guarded deterministic development extraction provider with production guard.
+- Extraction runs with lifecycle, provider lineage, source document/file link, source SHA-256, and safe failure codes.
+- Extracted fields with provider-independent field paths, original values, normalized candidate values, confidence, source page, and optional source locator.
+- Append-only extracted-field correction records with actor attribution and revision numbers.
+- Extraction audit events for start, success, failure, and correction.
+- Protected extraction, extraction metadata, and correction endpoints.
 
 ## Planned Future Components
 
@@ -74,7 +81,7 @@ Future optional components:
 - Production object storage.
 - Production malware scanning.
 - Secure document download.
-- OCR and extraction.
+- Production OCR provider integration.
 - AI recommendation providers.
 - Accounting recommendation logic.
 - Invoice, receipt, journal, review, reconciliation, and export workflows.
@@ -92,8 +99,8 @@ flowchart LR
     Admin[Firm Administrator] --> LP
     Auditor[Auditor / Read-Only User] --> LP
     LP --> Store[(Local Document Storage - Phase 2 development)]
-    LP --> DB[(PostgreSQL - Phase 1/2 metadata)]
-    LP --> OCR[OCR / Extraction Provider - future]
+    LP --> DB[(PostgreSQL - Phase 1/2/3 metadata)]
+    LP --> OCR[Development Extraction Provider - Phase 3]
     LP --> AI[AI Recommendation Provider - future]
     LP --> SQL[SQL Account - future integration]
     LP --> MY[LHDN MyInvois - future integration]
@@ -110,13 +117,14 @@ flowchart TB
     subgraph App["LedgerPilot application boundary - future"]
         Auth[Authentication and RBAC]
         Val[File validation and malware scan - Phase 2 boundary]
+        Extract[Structured extraction validation - Phase 3 boundary]
         Core[Deterministic accounting controls]
         Review[Human review workflow]
         Approved[Approved post-review integration boundary]
         Audit[Audit event recording]
     end
     subgraph Providers["External provider boundary - future"]
-        OCR[OCR providers]
+        OCR[Production OCR providers - future]
         AI[AI providers]
         SQL[Accounting platforms]
         MY[MyInvois]
@@ -124,8 +132,9 @@ flowchart TB
     U --> Auth
     F --> Val
     Auth --> Core
-    Val --> Core
-    OCR --> Core
+    Val --> Extract
+    OCR --> Extract
+    Extract --> Core
     AI --> Core
     Core --> Review
     Review --> Approved
@@ -169,6 +178,32 @@ HTTP upload
 
 Local storage and the development scanner are for development and automated tests only. Production storage and production malware scanning are still planned.
 
+## Phase 3 Extraction Boundary
+
+Phase 3 exposes structured-extraction endpoints:
+
+- `POST /api/v1/clients/{client_id}/documents/{document_id}/extractions`
+- `GET /api/v1/clients/{client_id}/documents/{document_id}/extractions`
+- `GET /api/v1/clients/{client_id}/documents/{document_id}/extractions/{run_id}`
+- `POST /api/v1/clients/{client_id}/documents/{document_id}/extractions/{run_id}/fields/{field_id}/corrections`
+
+The extraction trigger requires `RUN_EXTRACTION` plus explicit firm/client scope. Correction requires `CORRECT_EXTRACTED_INFORMATION`. Viewing extraction output uses `VIEW_DOCUMENTS` plus explicit firm/client scope.
+
+The implemented extraction pipeline is:
+
+```text
+Stored accepted document
+  -> accepted DocumentFile
+  -> internal storage open_for_processing
+  -> extraction provider boundary
+  -> deterministic provider-output validation
+  -> ExtractionRun and ExtractedField records
+  -> optional append-only corrections
+  -> audit events
+```
+
+The deterministic development provider is not real OCR and is refused in production. Phase 3 does not implement raw OCR text storage, raw document download, accounting recommendations, journals, review queues, SQL Account, or MyInvois.
+
 ## Phase 1 Authentication Boundary
 
 Production authentication is intentionally not implemented in Phase 1. The code defines an authentication backend interface and a guarded development-only backend for local development and automated tests.
@@ -187,15 +222,19 @@ Roles, permissions, and client access are not trusted from request headers.
 
 ## Provider-Independent Boundaries
 
-Future abstraction boundaries should exist for:
+Implemented provider-independent boundaries:
 
-- OCR.
+- Document storage.
+- Malware scanning.
 - Structured extraction.
+
+Future provider-independent boundaries should exist for:
+
+- Production OCR adapters.
 - Document classification.
 - AI recommendations.
 - Accounting platform.
 - MyInvois/e-Invoice.
-- Document storage.
 
 The core accounting model must not permanently depend on a commercial AI vendor or a single accounting platform.
 

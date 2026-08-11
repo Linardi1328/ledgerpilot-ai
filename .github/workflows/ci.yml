@@ -34,6 +34,10 @@ jobs:
       LEDGERPILOT_DOCUMENT_STORAGE_BACKEND: local
       LEDGERPILOT_DOCUMENT_STORAGE_ROOT: local_storage
       LEDGERPILOT_MALWARE_SCANNER_MODE: disabled
+      LEDGERPILOT_EXTRACTION_PROVIDER: disabled
+      LEDGERPILOT_EXTRACTION_SCHEMA_VERSION: ledgerpilot.extraction.v1
+      LEDGERPILOT_EXTRACTION_MAX_FIELDS: "500"
+      LEDGERPILOT_EXTRACTION_MAX_VALUE_CHARS: "4000"
 
     steps:
       - uses: actions/checkout@v4
@@ -66,6 +70,9 @@ jobs:
 
       - name: PostgreSQL document constraint tests
         run: python -m pytest tests/integration/test_postgresql_document_constraints.py
+
+      - name: PostgreSQL extraction constraint tests
+        run: python -m pytest tests/integration/test_postgresql_extraction_constraints.py
 
       - name: Pytest
         run: python -m pytest --cov=ledgerpilot --cov-report=term-missing

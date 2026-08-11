@@ -2,21 +2,21 @@
 
 ## Current Status
 
-**Current status: Phase 0 — Foundation, Discovery, and Repository Audit**
+**Current status: Phase 3 — OCR & Structured Extraction (review branch)**
 
-This repository contains Phase 0 foundation documentation, repository policy, GitHub templates, and a minimal Python tooling scaffold.
+This repository contains Phase 0 foundation documentation, Phase 1 core backend infrastructure, Phase 2 secure document intake, and Phase 3 structured extraction foundations.
 
-Phase 0 does not implement production accounting features, OCR, AI extraction, authentication, persistence, SQL Account integration, MyInvois integration, payment execution, or supplier-bank-detail changes.
+Phase 3 does not implement production OCR, production authentication, accounting recommendations, journal generation, approval workflows, SQL Account integration, MyInvois integration, payment execution, supplier-bank-detail changes, frontend UI, or production deployment.
 
 ## Handover Summary
 
-Phase 0 establishes:
+The project has established:
 
 - Product purpose and safety principles.
 - Prototype 1 MVP scope.
 - User roles and conceptual permissions.
 - Planned workflows and lifecycle states.
-- Conceptual domain model.
+- Domain model documentation plus implemented identity, document, audit, and extraction primitives.
 - Functional and non-functional requirements.
 - MVP acceptance criteria.
 - Accounting-control principles.
@@ -27,7 +27,7 @@ Phase 0 establishes:
 - Malaysian/MyInvois context.
 - Development roadmap.
 - Public repository policy.
-- Minimal Python package import scaffold.
+- FastAPI, settings, SQLAlchemy, Alembic, PostgreSQL development configuration, RBAC, tenant/client scoping, audit events, secure document intake, and structured extraction.
 
 ## Review Notes
 
@@ -39,4 +39,4 @@ Phase 0 establishes:
 
 ## Next Recommended Action
 
-Independently review the Phase 0 pull request before approving merge.
+Independently review the Phase 3 pull request before approving merge.

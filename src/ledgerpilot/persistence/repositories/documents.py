@@ -5,6 +5,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ledgerpilot.documents.types import DocumentFileArea
 from ledgerpilot.persistence.models.documents import Document, DocumentFile
 
 
@@ -45,5 +46,20 @@ class DocumentRepository:
             DocumentFile.document_id == document_id,
             DocumentFile.firm_id == firm_id,
             DocumentFile.client_id == client_id,
+        )
+        return self._session.scalar(statement)
+
+    def get_accepted_document_file_for_client(
+        self,
+        *,
+        firm_id: UUID,
+        client_id: UUID,
+        document_id: UUID,
+    ) -> DocumentFile | None:
+        statement = select(DocumentFile).where(
+            DocumentFile.document_id == document_id,
+            DocumentFile.firm_id == firm_id,
+            DocumentFile.client_id == client_id,
+            DocumentFile.storage_area == DocumentFileArea.ACCEPTED.value,
         )
         return self._session.scalar(statement)

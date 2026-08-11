@@ -1,6 +1,6 @@
 # Privacy Requirements
 
-This document defines planned privacy requirements. It does not claim these controls are implemented in Phase 0.
+This document defines privacy requirements and implementation boundaries. Phase 3 implements tenant/client-scoped document metadata and structured extraction for development/testing, but production privacy controls still require independent review.
 
 ## Data Minimisation
 
@@ -8,7 +8,7 @@ Collect and process only the information needed for the accounting workflow, leg
 
 ## Purpose Limitation
 
-Use client documents, invoice data, accounting records, and personal information only for authorised LedgerPilot AI purposes.
+Use client documents, extracted fields, corrections, invoice data, accounting records, and personal information only for authorised LedgerPilot AI purposes.
 
 ## Least Access
 
@@ -28,11 +28,11 @@ Support secure deletion where permitted. Deletion must not violate required acco
 
 ## Confidentiality
 
-Protect confidential accounting information, personal information, financial information, bank information, taxpayer identifiers, employee information, and integration credentials.
+Protect confidential accounting information, extracted field values, correction history, personal information, financial information, bank information, taxpayer identifiers, employee information, and integration credentials.
 
 ## Sensitive-Log Prevention
 
-Logs should not contain full invoices, credentials, tokens, bank details, taxpayer identifiers, or unnecessary personal information. Error messages should be useful without leaking sensitive data.
+Logs should not contain full invoices, extracted values, corrected values, raw OCR text, provider payloads, credentials, tokens, bank details, taxpayer identifiers, or unnecessary personal information. Error messages should be useful without leaking sensitive data.
 
 ## Synthetic Development Data
 

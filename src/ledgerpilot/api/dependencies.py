@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from ledgerpilot.api.errors import ApiError
 from ledgerpilot.core.config import Settings
+from ledgerpilot.extraction.protocol import ExtractionProvider
 from ledgerpilot.identity.authentication import AuthenticationBackend
 from ledgerpilot.identity.authorization import has_permission
 from ledgerpilot.identity.permissions import Permission
@@ -47,6 +48,10 @@ def get_document_storage(request: Request) -> DocumentStorage:
 
 def get_malware_scanner(request: Request) -> MalwareScanner:
     return cast(MalwareScanner, request.app.state.malware_scanner)
+
+
+def get_extraction_provider(request: Request) -> ExtractionProvider:
+    return cast(ExtractionProvider, request.app.state.extraction_provider)
 
 
 def require_permission(permission: Permission) -> Callable[[Principal], Principal]:

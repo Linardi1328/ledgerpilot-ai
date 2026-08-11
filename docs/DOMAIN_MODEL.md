@@ -1,6 +1,6 @@
-# Conceptual Domain Model
+# Domain Model
 
-This model is conceptual only. Phase 0 does not implement database tables.
+This model combines implemented infrastructure entities with future conceptual accounting entities. Phase 1 implemented identity, tenant/client ownership, and audit primitives. Phase 2 implemented document and document-file metadata. Phase 3 implements extraction runs, extracted fields, and extracted-field corrections. Invoice, supplier/customer matching, recommendations, journals, review tasks, exports, and MyInvois records remain future concepts.
 
 ## Domain Diagram
 
@@ -15,6 +15,7 @@ erDiagram
     DocumentVersion ||--o{ DocumentFile : stores
     Document ||--o{ ExtractionRun : has
     ExtractionRun ||--o{ ExtractedField : produces
+    ExtractedField ||--o{ ExtractionFieldCorrection : corrected_by
     Supplier ||--o{ Invoice : issues
     Customer ||--o{ Invoice : receives
     Invoice ||--o{ InvoiceLine : contains
@@ -38,19 +39,20 @@ erDiagram
 
 | Concept | Purpose | Relationships and tenant ownership | Mutability and lifecycle | Audit implications |
 | --- | --- | --- | --- | --- |
-| Firm | Accounting firm tenant. | Owns firm users, clients, configuration, rules, integrations, and audit scope. | Mutable administrative metadata; lifecycle from active to suspended/closed. | Firm-level configuration and access changes are auditable. |
-| FirmUser | Person operating inside a firm tenant. | Belongs to firm; assigned roles and client scopes. | Mutable profile and access status. | Role, permission, and status changes are auditable. |
-| Role | Named access bundle. | Assigned to firm users; grants permissions. | Configurable but versioned or audited. | Role changes affect control environment and require audit history. |
-| Permission | Atomic capability. | Granted through roles and checked against tenant/client scope. | Usually stable; additions require review. | Permission evaluation failures and grants may be security-relevant. |
-| ClientEntity | Client organisation or business represented by the firm. | Owned by firm; owns documents, invoices, suppliers, customers, journals. | Mutable metadata; lifecycle active/inactive/archived. | Client access and data changes must be auditable. |
+| Firm | Implemented accounting firm tenant. | Owns firm users, clients, configuration, rules, integrations, and audit scope. | Mutable administrative metadata; lifecycle from active to suspended/closed. | Firm-level configuration and access changes are auditable. |
+| FirmUser | Implemented user operating inside a firm tenant. | Belongs to firm through memberships; assigned roles and client scopes. | Mutable authentication subject and active status. | Role, permission, and status changes are auditable. |
+| Role | Implemented named access bundle. | Assigned through firm memberships; grants permissions. | Code-defined in Phase 1; future role administration must be audited. | Role changes affect control environment and require audit history. |
+| Permission | Implemented atomic capability. | Granted through roles and checked against tenant/client scope. | Code-defined; additions require review. | Permission evaluation failures and grants may be security-relevant. |
+| ClientEntity | Implemented client organisation or business represented by the firm. | Owned by firm; owns documents, future invoices, suppliers, customers, journals. | Mutable metadata; lifecycle active/inactive/archived. | Client access and data changes must be auditable. |
 | ClientUser | External submitter or authorised viewer. | Belongs to client scope and may authenticate separately. | Mutable access status and contact details. | Access grants, uploads, and responses are auditable. |
-| Document | Logical supporting document. | Owned by client entity; linked to versions, files, extraction, invoice, review. | State-driven; not silently overwritten. | State transitions and associations are auditable. |
+| Document | Implemented logical supporting document metadata. | Owned by client entity; linked to files, extraction, future invoice/review. | State-driven; not silently overwritten. | State transitions and associations are auditable. |
 | DocumentVersion | Version of document metadata/content interpretation. | Belongs to document; linked to file and extraction runs. | Append/supersede rather than overwrite. | Version creation and supersession require audit events. |
-| DocumentFile | Stored original or derivative file reference. | Belongs to document version and storage provider. | Immutable file reference where possible; archived by policy. | Access and retention actions may be audited. |
+| DocumentFile | Implemented stored original file reference. | Belongs to document and storage provider with firm/client composite ownership. | Immutable file reference where possible; accepted/quarantine area is explicit. | Access and retention actions may be audited. |
 | DocumentClassification | Document type/classification result. | Linked to document or extraction run. | May be corrected with history. | Classification source, confidence, and correction should be retained. |
-| ExtractionRun | Attempt to extract data. | Belongs to document version; references provider/model. | Immutable run record after completion. | Provider, version, status, errors, and outputs are auditable. |
-| ExtractedField | Extracted value for a document field. | Belongs to extraction run; may map to invoice fields. | Original extraction immutable; reviewed values use correction. | Field source and corrections are traceable. |
-| FieldConfidence | Confidence score or assessment for a field. | Belongs to extracted field. | Immutable per extraction run. | Supports uncertainty review and model monitoring. |
+| ExtractionRun | Implemented attempt to extract structured data. | Belongs to firm/client/document/document-file; references provider lineage. | Pending/running/succeeded/failed; terminal runs are not reset. | Provider, version, status, safe failure codes, and outputs are auditable. |
+| ExtractedField | Implemented extracted value for a provider-independent field path. | Belongs to extraction run and retains document/client/firm scope. | Original extraction immutable; effective values use corrections. | Field source, confidence, and corrections are traceable. |
+| FieldConfidence | Implemented as optional confidence on extracted fields. | Belongs to extracted field. | Immutable per extraction run. | Supports uncertainty review and model monitoring; not proof of correctness. |
+| ExtractionFieldCorrection | Implemented append-only correction to an extracted field. | Belongs to field/run/document/client/firm and corrected-by membership/user. | Revisioned and append-only through application interfaces. | Correction reason, actor, timestamp, and revision are auditable. |
 | Supplier | Counterparty supplying goods/services. | Owned by client entity; linked to identifiers, invoices, rules. | Mutable through controlled changes; bank changes are high risk and out of MVP. | Supplier changes and matches are auditable. |
 | Customer | Counterparty receiving goods/services. | Owned by client entity; linked to identifiers and invoices. | Mutable through controlled changes. | Customer changes and matches are auditable. |
 | BusinessIdentifier | Registration, tax, or other identifier. | Belongs to supplier, customer, firm, or client. | Mutable with history; validated status may change. | Identifier validation and changes are auditable. |

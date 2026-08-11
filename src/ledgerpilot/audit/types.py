@@ -11,3 +11,7 @@ class AuditEventType(StrEnum):
     DOCUMENT_SCAN_FAILED = "document_scan_failed"
     DOCUMENT_QUARANTINED = "document_quarantined"
     DOCUMENT_STORED = "document_stored"
+    EXTRACTION_STARTED = "extraction_started"
+    EXTRACTION_SUCCEEDED = "extraction_succeeded"
+    EXTRACTION_FAILED = "extraction_failed"
+    EXTRACTION_CORRECTION_RECORDED = "extraction_correction_recorded"

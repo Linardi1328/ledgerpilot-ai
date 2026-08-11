@@ -95,7 +95,7 @@ Dependencies:
 
 ## 4. Phase 2: Secure Document Intake
 
-Status: In review on `review/phase-02-secure-document-intake`; not complete until independently approved and merged.
+Status: Complete and merged into `main` after independent review.
 
 Objective: accept and store synthetic supporting documents safely.
 
@@ -132,6 +132,8 @@ Dependencies:
 
 ## 5. Phase 3: OCR and Extraction
 
+Status: In progress on `review/phase-03-ocr-extraction`; not complete until independently approved and merged.
+
 Objective: extract structured fields from synthetic documents through provider-independent boundaries.
 
 Deliverables:
@@ -141,11 +143,17 @@ Deliverables:
 - Extracted fields and confidence.
 - Manual correction path.
 - Synthetic fixtures.
+- PostgreSQL extraction ownership constraint tests.
 
 Exit criteria:
 
 - Extraction failures cannot proceed to approval.
 - Field confidence and provider version are retained.
+- Extraction consumes only stored documents with accepted files.
+- Provider output is structurally validated before persistence.
+- Corrections preserve original provider values and create attributable history.
+- PostgreSQL migration and ownership constraint tests pass.
+- Independent review approves the Phase 3 pull request.
 
 Risks:
 
