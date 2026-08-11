@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the proposed architecture direction. Phase 0 implements documentation, repository policy, and a minimal Python package-import scaffold only.
+This document describes the architecture direction. Phase 1 implements backend infrastructure foundations while preserving the Phase 0 modular-monolith direction.
 
 ## Architecture Style
 
@@ -36,23 +36,35 @@ Future optional components:
 - Cloud document-processing APIs.
 - Local machine-learning models.
 
-## Implemented in Phase 0
+## Implemented Through Phase 1
 
 - Documentation.
 - Repository policy.
 - GitHub issue and PR templates.
 - Minimal `ledgerpilot` Python package.
-- Import smoke test.
-- Pytest, Ruff, and Mypy configuration.
+- FastAPI application factory with versioned `/api/v1` routing.
+- Liveness and readiness endpoints.
+- Typed central configuration with Pydantic and `pydantic-settings`.
+- PostgreSQL-targeted SQLAlchemy 2.x persistence foundation.
+- Alembic migration configuration and initial infrastructure migration.
+- Firm, user, firm-membership, client-entity, client-access, and audit-event models.
+- Development-only authentication backend behind an authentication boundary.
+- RBAC role and permission definitions aligned with Phase 0.
+- Tenant/client-scoped repository methods.
+- Append-oriented audit-event service.
+- Safe structured API errors.
+- Request correlation ID middleware.
+- Docker Compose PostgreSQL development service.
+- GitHub Actions CI for linting, formatting, type checking, tests, coverage, migrations, and build.
 
-## Not Implemented in Phase 0
+## Planned Future Components
 
-- FastAPI application routes.
-- Authentication.
-- Persistence.
-- OCR.
-- AI extraction.
+- Production authentication.
+- Secure document upload and storage.
+- OCR and extraction.
+- AI recommendation providers.
 - Accounting recommendation logic.
+- Invoice, receipt, journal, review, reconciliation, and export workflows.
 - SQL Account integration.
 - MyInvois integration.
 - Production deployment.
@@ -67,7 +79,7 @@ flowchart LR
     Admin[Firm Administrator] --> LP
     Auditor[Auditor / Read-Only User] --> LP
     LP --> Store[(Document Storage - future)]
-    LP --> DB[(PostgreSQL - future)]
+    LP --> DB[(PostgreSQL - Phase 1 infrastructure)]
     LP --> OCR[OCR / Extraction Provider - future]
     LP --> AI[AI Recommendation Provider - future]
     LP --> SQL[SQL Account - future integration]
@@ -110,6 +122,32 @@ flowchart TB
 ```
 
 Provider output enters the application as untrusted input. Core accounting controls must remain deterministic and provider-independent. External accounting-platform and MyInvois/e-Invoice effects must be routed through an explicit approved post-review integration boundary; deterministic controls alone cannot trigger those effects.
+
+## Phase 1 API Boundary
+
+Phase 1 exposes only infrastructure endpoints:
+
+- `GET /api/v1/health/live`
+- `GET /api/v1/health/ready`
+- `GET /api/v1/context`
+
+The context endpoint is protected and exists only to prove authenticated principal construction. It is not a business workflow endpoint.
+
+## Phase 1 Authentication Boundary
+
+Production authentication is intentionally not implemented in Phase 1. The code defines an authentication backend interface and a guarded development-only backend for local development and automated tests.
+
+Development authentication:
+
+- Is disabled by default.
+- Requires `LEDGERPILOT_AUTH_MODE=development`.
+- Requires `LEDGERPILOT_DEV_AUTH_ENABLED=true`.
+- Is allowed only in `development` or `test`.
+- Is rejected by settings validation in `production`.
+- Accepts only a development subject and firm identifier from headers.
+- Loads role, permissions, membership, and client access from controlled persistence.
+
+Roles, permissions, and client access are not trusted from request headers.
 
 ## Provider-Independent Boundaries
 

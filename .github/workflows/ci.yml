@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ledgerpilot_ci
+          POSTGRES_PASSWORD: fake_ci_password
+          POSTGRES_DB: ledgerpilot_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ledgerpilot_ci -d ledgerpilot_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      LEDGERPILOT_ENV: test
+      LEDGERPILOT_DATABASE_URL: postgresql+psycopg://ledgerpilot_ci:fake_ci_password@127.0.0.1:5432/ledgerpilot_ci
+      LEDGERPILOT_LOG_LEVEL: INFO
+      LEDGERPILOT_AUTH_MODE: disabled
+      LEDGERPILOT_DEV_AUTH_ENABLED: "false"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package and development dependencies
+        run: python -m pip install -e ".[dev]"
+
+      - name: Ruff lint
+        run: python -m ruff check .
+
+      - name: Ruff format
+        run: python -m ruff format --check .
+
+      - name: Mypy
+        run: python -m mypy src
+
+      - name: Alembic upgrade
+        run: alembic upgrade head
+
+      - name: Alembic downgrade and re-upgrade
+        run: |
+          alembic downgrade base
+          alembic upgrade head
+
+      - name: Pytest
+        run: python -m pytest --cov=ledgerpilot --cov-report=term-missing
+
+      - name: Build
+        run: python -m build

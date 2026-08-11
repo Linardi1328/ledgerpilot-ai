@@ -1,6 +1,6 @@
 # LedgerPilot AI
 
-**Current status: Phase 0 — Foundation, Discovery, and Repository Audit**
+**Current status: Phase 1 — Core Infrastructure (review branch)**
 
 LedgerPilot AI is a planned accounting automation assistant for reducing repetitive bookkeeping and accounting work while preserving deterministic accounting controls, traceability, and human review.
 
@@ -154,6 +154,24 @@ SQL Account
 
 LedgerPilot must not permanently depend on SQL Account. Phase 0 does not implement the SQL Account API.
 
+## Implemented Infrastructure in Phase 1
+
+The Phase 1 review branch establishes backend infrastructure only:
+
+- FastAPI application factory and `/api/v1` routing.
+- Typed Pydantic settings with guarded environment/auth configuration.
+- PostgreSQL-targeted SQLAlchemy 2.x persistence foundation.
+- Alembic migration for infrastructure tables only.
+- Firm, user, membership, client, client-access, and audit-event primitives.
+- Development-only authentication boundary backed by persisted memberships.
+- RBAC role and permission definitions aligned with Phase 0.
+- Tenant/client-scoped repository access patterns.
+- Health/readiness endpoints.
+- Safe structured API errors and request correlation IDs.
+- GitHub Actions CI quality gate.
+
+Phase 1 does not implement invoice processing, document upload/storage, OCR, AI providers, accounting recommendations, journals, review queues, bank reconciliation, SQL Account, MyInvois, frontend work, or production deployment.
+
 ## Proposed Technology
 
 Backend direction:
@@ -219,28 +237,61 @@ ledgerpilot-ai/
 
 ## Local Development
 
-Create and activate a virtual environment if desired, then install development tooling:
+Create and activate a virtual environment:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
+
+Windows PowerShell activation:
+
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+Install the package and development tooling:
 
 ```bash
 python -m pip install -e ".[dev]"
+```
+
+Start local PostgreSQL:
+
+```bash
+docker compose up -d postgres
+```
+
+Apply migrations:
+
+```bash
+alembic upgrade head
+```
+
+Run the API locally:
+
+```bash
+uvicorn ledgerpilot.api.app:create_app --factory --reload
 ```
 
 Run checks:
 
 ```bash
 python -m pytest
+python -m pytest --cov=ledgerpilot --cov-report=term-missing
 python -m ruff check .
-python -m mypy src
-python -c "import ledgerpilot"
-```
-
-Optional checks:
-
-```bash
-python -m pytest --cov
 python -m ruff format --check .
+python -m mypy src
 python -m build
 ```
+
+Stop local PostgreSQL:
+
+```bash
+docker compose down
+```
+
+See [Development Guide](docs/DEVELOPMENT.md).
 
 ## Contribution Workflow
 
@@ -309,11 +360,12 @@ See [Roadmap](docs/ROADMAP.md).
 - [Risk Register](docs/RISK_REGISTER.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Glossary](docs/GLOSSARY.md)
+- [Development Guide](docs/DEVELOPMENT.md)
 - [Architecture Decision Records](docs/adr/README.md)
 
 ## Production-Readiness Disclaimer
 
-LedgerPilot AI is not production-ready. Phase 0 is foundation and discovery only. No production accounting workflow, OCR, AI recommendation engine, authentication, database persistence, SQL Account integration, MyInvois integration, or deployment is implemented.
+LedgerPilot AI is not production-ready. Phase 1 establishes backend infrastructure for review only. Production authentication, production deployment, document intake, OCR, AI recommendation engine, accounting automation, SQL Account integration, and MyInvois integration are not implemented.
 
 ## Accounting, Tax, and Legal Disclaimer
 

@@ -59,6 +59,8 @@ Dependencies:
 
 ## 3. Phase 1: Core Infrastructure
 
+Status: In review on `review/phase-01-infrastructure`; not complete until independently approved and merged.
+
 Objective: establish secure backend foundations without business automation.
 
 Deliverables:
@@ -69,11 +71,16 @@ Deliverables:
 - Authentication and RBAC foundations.
 - Tenant/client ownership primitives.
 - Audit-event infrastructure.
+- Health/readiness endpoints.
+- Request correlation IDs and safe error handling.
+- GitHub Actions CI quality gate.
 
 Exit criteria:
 
 - Core app runs locally.
 - Access-control and tenant-isolation tests exist.
+- Initial migrations upgrade successfully.
+- CI checks pass on the Phase 1 pull request.
 - No accounting automation claims yet.
 
 Risks:
