@@ -1,0 +1,104 @@
+# Security Requirements
+
+This document defines planned security requirements. It does not claim these controls are implemented in Phase 0.
+
+## Authentication
+
+- Require authenticated access for non-public application functions.
+- Support secure password/session handling or a trusted identity provider in future phases.
+- Require multi-factor authentication consideration for firm administrators and privileged users.
+
+## Authorisation and RBAC
+
+- Enforce role-based access control.
+- Apply least privilege.
+- Separate administrative access from accounting approval authority.
+- Enforce tenant and client isolation on every authorised application path.
+- Prevent client users from accessing other clients.
+
+## Tenant and Client Isolation
+
+- Every tenant-owned record must be scoped to a firm or client entity.
+- Queries, commands, exports, logs, and audit views must prevent cross-client leakage.
+- Tests must cover tenant/client isolation once persistence and APIs exist.
+
+## Data Protection
+
+- Use encryption in transit.
+- Use encryption at rest for production data stores and document storage.
+- Manage secrets outside source control.
+- Rotate secrets and integration credentials when required.
+- Redact secrets and sensitive data from logs.
+
+## Session Security
+
+- Use secure cookies or token handling.
+- Apply session expiry and revocation.
+- Protect against cross-site request forgery where browser sessions are used.
+- Record privileged session activity in audit logs where appropriate.
+
+## File Security
+
+- Validate uploaded files.
+- Use a file-type allowlist.
+- Enforce file-size limits.
+- Perform malware scanning.
+- Quarantine suspicious files.
+- Store original files in controlled document storage.
+- Use temporary or signed access for file retrieval.
+- Prevent direct public access to private documents.
+
+## Audit Logging
+
+- Record security-relevant and accounting-control events.
+- Include actor, tenant/client scope, action, target, timestamp, result, and reason when available.
+- Protect audit logs from unauthorised modification.
+- Redact sensitive values.
+
+## Abuse Protection
+
+- Apply rate limiting to authentication, upload, extraction, and integration endpoints.
+- Monitor suspicious upload and access patterns.
+- Protect against brute force, scraping, and excessive automation.
+
+## Retention and Deletion
+
+- Define retention policies per tenant/client and record type.
+- Support secure deletion where legally and operationally permitted.
+- Preserve accounting history where retention obligations require it.
+
+## Backup and Recovery
+
+- Define backup frequency, retention, restoration procedures, and recovery objectives.
+- Test restoration before claiming recoverability.
+- Include disaster recovery planning before production use.
+
+## Incident Response
+
+- Define incident classification, containment, investigation, notification, remediation, and post-incident review.
+- Include credential exposure, cross-client leakage, malware upload, data loss, and integration compromise scenarios.
+
+## Financial and Personal Information
+
+- Treat invoices, receipts, bank data, taxpayer identifiers, employee information, and accounting records as sensitive.
+- Minimise exposure in logs, exports, test fixtures, and support workflows.
+
+## Integration Secrets
+
+- Store accounting-platform, OCR, AI, storage, and MyInvois credentials in a secrets manager or equivalent secure facility.
+- Do not store secrets in source code, `.env.example`, documentation, logs, test fixtures, or issue reports.
+
+## Dependency Security
+
+- Pin or constrain dependencies appropriately.
+- Monitor dependency vulnerabilities.
+- Review transitive dependencies before production use.
+- Run dependency/security testing as the project matures.
+
+## Security Testing
+
+Future security testing should include unit tests, integration tests, tenant-isolation tests, access-control tests, file-validation tests, secret-scanning checks, dependency scanning, and penetration testing before production use.
+
+## Validation Status
+
+**Status: Provisional — requires technical investigation, legal/privacy review, and production security design.**
