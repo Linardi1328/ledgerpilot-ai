@@ -1,6 +1,6 @@
 # Workflows and State Models
 
-This document describes planned workflows and states. Phase 2 implements secure document intake only; OCR, extraction, accounting recommendation, review, export, SQL Account, and MyInvois processing remain future functionality.
+This document describes implemented and planned workflows and states. Phase 3 implements secure document intake plus structured extraction. Accounting recommendation, review, export, SQL Account, and MyInvois processing remain future functionality.
 
 ## Implemented Phase 2 Intake Flow
 
@@ -26,7 +26,33 @@ flowchart TD
     N --> R[Audit scan failure]
 ```
 
-Implemented metadata endpoints expose safe document metadata only. There is no document download endpoint in Phase 2.
+Implemented metadata endpoints expose safe document metadata only. There is no document download endpoint through Phase 3.
+
+## Implemented Phase 3 Extraction Flow
+
+```mermaid
+flowchart TD
+    A[Stored accepted document] --> B[Authorised extraction request]
+    B --> C{Client scope and RUN_EXTRACTION?}
+    C -->|No| D[Access denied]
+    C -->|Yes| E[Load accepted DocumentFile]
+    E --> F{Document status stored and file area accepted?}
+    F -->|No| G[Extraction denied]
+    F -->|Yes| H[Open source through storage boundary]
+    H --> I[Development extraction provider boundary]
+    I --> J[Untrusted provider output]
+    J --> K{Deterministic output validation}
+    K -->|Invalid| L[ExtractionRun failed]
+    K -->|Valid| M[ExtractionRun succeeded]
+    M --> N[ExtractedFields with confidence and provenance]
+    N --> O{Correction required?}
+    O -->|Yes| P[Append correction revision]
+    O -->|No| Q[Effective structured extraction]
+    P --> Q
+    Q --> R[Phase 4 accounting validation - future]
+```
+
+The implemented extraction flow persists extraction runs, validated extracted fields, confidence, source provenance, and append-only correction history. It does not perform invoice arithmetic validation, supplier matching, accounting coding, journal generation, approvals, SQL Account export, or MyInvois submission.
 
 ## Overall Document Processing Flow
 
@@ -36,8 +62,8 @@ flowchart TD
     B --> C[File validated]
     C --> D[Malware scan]
     D --> E[Secure accepted storage]
-    E --> F[Extraction performed]
-    F --> G[Field confidence retained]
+    E --> F[Structured extraction performed - Phase 3]
+    F --> G[Field confidence retained - Phase 3]
     G --> H[Required fields validated]
     H --> I[Arithmetic validated]
     I --> J[Duplicate detection]
@@ -92,12 +118,17 @@ flowchart LR
 - Stored
 - Rejected
 
-## Future Document States
+## Implemented Phase 3 Extraction Run States
 
-- Extraction Pending
-- Extracting
-- Extraction Failed
-- Extracted
+- Pending
+- Running
+- Succeeded
+- Failed
+
+Only succeeded extraction runs are downstream-ready for future Phase 4 validation. Pending, running, and failed runs are not downstream-ready.
+
+## Future Document/Review Preparation States
+
 - Information Required
 - Ready for Review
 - Rejected
@@ -168,10 +199,11 @@ stateDiagram-v2
 | Validating -> Malware Scan Pending | System | File validation | File passes allowlist, size, and integrity checks | Validation result retained | Required | Yes, by rejection/quarantine |
 | Malware Scan Pending -> Quarantined | System | File validation | Malware scan reports suspicious or unsafe content | Malware result retained | Required | Yes, by authorised security review or replacement upload |
 | Malware Scan Pending -> Stored | System | File validation | Malware scan passes and tenant/client metadata is valid | Allowlist, size, integrity, and malware result retained | Required | No silent deletion; archive under retention |
-| Stored -> Extraction Pending | System | Extraction scheduling | File stored and associated to tenant/client | Document type supported | Required | Yes, cancel/retry |
-| Extraction Pending -> Extracting | System | Extraction execution | Work item available | Provider availability | Required | Retryable |
-| Extracting -> Extraction Failed | System | Extraction execution | Extraction error or timeout | Error recorded | Required | Yes, retry or manual entry |
-| Extracting -> Extracted | System | Extraction execution | Extraction completed | Field confidence retained | Required | Yes, superseded by later extraction run |
+| Stored -> Extraction Run Pending | Accountant or senior reviewer | Run extraction | Stored document and accepted DocumentFile exist; client scope authorised | Provider configured; source SHA retained | Required | Yes, retry creates a new run |
+| Extraction Run Pending -> Running | System | Run extraction | Extraction run exists | Provider boundary receives only controlled context | Required | Retry creates a new run |
+| Extraction Running -> Failed | System | Run extraction | Provider fails or output validation fails | Safe failure code retained; no successful fields from invalid output | Required | Retry creates a new run |
+| Extraction Running -> Succeeded | System | Run extraction | Provider output validates | Field paths, confidence, source provenance, provider lineage retained | Required | New run supersedes by chronology only |
+| Extracted Field -> Corrected Effective Value | Accountant or senior reviewer | Correct extracted information | Field belongs to authorised firm/client/document/run | Reason required; original field remains unchanged | Required | Yes, another correction revision |
 | Extracted -> Ready for Review | System | Review routing | Required and arithmetic validation pass | Duplicate/supplier/risk checks recorded | Required | Yes, reviewer may request info |
 | Any reviewable -> Information Required | Accountant or senior reviewer | Request information | Missing or unclear information exists | Comment required | Required | Yes, submitter response returns to review |
 | Ready for Review -> Duplicate Suspected | System or reviewer | Review recommendations | Duplicate indicators exceed threshold | Explanation retained | Required | Yes, reviewer resolves |

@@ -7,6 +7,7 @@ class Permission(StrEnum):
     VIEW_CONTEXT = "view_context"
     UPLOAD_DOCUMENTS = "upload_documents"
     VIEW_DOCUMENTS = "view_documents"
+    RUN_EXTRACTION = "run_extraction"
     CORRECT_EXTRACTED_INFORMATION = "correct_extracted_information"
     REVIEW_RECOMMENDATIONS = "review_recommendations"
     APPROVE_ORDINARY_TRANSACTION = "approve_ordinary_transaction"

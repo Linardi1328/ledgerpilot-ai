@@ -104,6 +104,13 @@ class DocumentFile(Base):
             name="uq_document_files_document_storage_area",
         ),
         UniqueConstraint(
+            "id",
+            "document_id",
+            "firm_id",
+            "client_id",
+            name="uq_document_files_id_document_scope",
+        ),
+        UniqueConstraint(
             "storage_backend",
             "storage_key",
             name="uq_document_files_storage_backend_key",

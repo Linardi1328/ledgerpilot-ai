@@ -30,6 +30,7 @@ def test_permission_denied() -> None:
 def test_firm_admin_is_not_implicit_allow_all_for_accounting_permissions() -> None:
     admin = _principal(Role.FIRM_ADMIN)
     assert has_permission(admin, Permission.MANAGE_USERS)
+    assert not has_permission(admin, Permission.RUN_EXTRACTION)
     assert not has_permission(admin, Permission.APPROVE_ORDINARY_TRANSACTION)
     assert not has_permission(admin, Permission.APPROVE_HIGH_RISK_TRANSACTION)
     assert not has_permission(admin, Permission.CORRECT_APPROVED_RECORDS)
@@ -40,12 +41,19 @@ def test_auditor_remains_read_only() -> None:
     assert has_permission(auditor, Permission.VIEW_AUDIT_HISTORY)
     assert has_permission(auditor, Permission.VIEW_DOCUMENTS)
     assert not has_permission(auditor, Permission.REJECT_TRANSACTION)
+    assert not has_permission(auditor, Permission.RUN_EXTRACTION)
     assert not has_permission(auditor, Permission.CORRECT_EXTRACTED_INFORMATION)
 
 
 def test_client_submitter_has_restricted_access() -> None:
     submitter = _principal(Role.CLIENT_SUBMITTER)
     assert has_permission(submitter, Permission.UPLOAD_DOCUMENTS)
+    assert not has_permission(submitter, Permission.RUN_EXTRACTION)
     assert not has_permission(submitter, Permission.REQUEST_INFORMATION)
     assert not has_permission(submitter, Permission.VIEW_AUDIT_HISTORY)
     assert not has_permission(submitter, Permission.MANAGE_CONFIGURATION)
+
+
+def test_accountant_and_senior_reviewer_can_run_extraction() -> None:
+    assert has_permission(_principal(Role.ACCOUNTANT), Permission.RUN_EXTRACTION)
+    assert has_permission(_principal(Role.SENIOR_REVIEWER), Permission.RUN_EXTRACTION)

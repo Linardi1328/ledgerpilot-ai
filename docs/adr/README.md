@@ -20,3 +20,6 @@ This directory records meaningful architecture and control decisions.
 | [0014](0014-staged-document-intake-and-trust-boundary.md) | Staged document intake and trust boundary | Accepted |
 | [0015](0015-provider-independent-document-storage.md) | Provider-independent document storage | Accepted |
 | [0016](0016-malware-scanner-provider-boundary.md) | Malware scanner provider boundary | Accepted |
+| [0017](0017-provider-independent-extraction-boundary.md) | Provider-independent extraction boundary | Accepted |
+| [0018](0018-immutable-extraction-runs-and-fields.md) | Immutable extraction runs and fields | Accepted |
+| [0019](0019-append-only-extraction-corrections.md) | Append-only extraction corrections | Accepted |

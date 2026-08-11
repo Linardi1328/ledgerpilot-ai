@@ -2,9 +2,9 @@
 
 ## Status
 
-**Current status: Phase 2 — Secure Document Intake (review branch)**
+**Current status: Phase 3 — OCR & Structured Extraction (review branch)**
 
-Phase 2 implements secure document intake for local development and automated tests. It does not implement OCR, extraction, AI recommendations, accounting automation, review workflows, SQL Account, MyInvois, production authentication, production object storage, production malware scanning, or production deployment.
+Phase 3 implements secure document intake and deterministic structured extraction for local development and automated tests. It does not implement production OCR, AI recommendations, accounting automation, review workflows, SQL Account, MyInvois, production authentication, production object storage, production malware scanning, or production deployment.
 
 ## Local Setup
 
@@ -83,15 +83,19 @@ The request may identify only a synthetic development subject and firm. Roles, p
 
 Production refuses development auth through settings validation. A future production identity provider or secure authentication implementation must replace it before production use.
 
-## Local Document Intake Configuration
+## Local Document Intake and Extraction Configuration
 
-Phase 2 local document intake uses development-only storage and scanner implementations:
+Phase 2 local document intake uses development-only storage and scanner implementations. Phase 3 adds a development-only extraction provider:
 
 ```bash
 export LEDGERPILOT_DOCUMENT_STORAGE_BACKEND=local
 export LEDGERPILOT_DOCUMENT_STORAGE_ROOT=local_storage
 export LEDGERPILOT_MALWARE_SCANNER_MODE=development
 export LEDGERPILOT_DOCUMENT_MAX_BYTES=10485760
+export LEDGERPILOT_EXTRACTION_PROVIDER=development
+export LEDGERPILOT_EXTRACTION_SCHEMA_VERSION=ledgerpilot.extraction.v1
+export LEDGERPILOT_EXTRACTION_MAX_FIELDS=500
+export LEDGERPILOT_EXTRACTION_MAX_VALUE_CHARS=4000
 ```
 
 The local storage provider keeps files under:
@@ -103,7 +107,7 @@ local_storage/
 └── quarantine/
 ```
 
-`local_storage/` is ignored by Git and must not be committed. The development scanner is deterministic and synthetic; it is not real malware protection and production refuses it through settings validation.
+`local_storage/` is ignored by Git and must not be committed. The development scanner is deterministic and synthetic; it is not real malware protection. The development extraction provider is deterministic synthetic test infrastructure; it is not real OCR and is not evidence of OCR accuracy. Production refuses both development providers through settings validation.
 
 The implemented Phase 2 endpoints are:
 
@@ -112,7 +116,16 @@ POST /api/v1/clients/{client_id}/documents
 GET /api/v1/clients/{client_id}/documents/{document_id}
 ```
 
-Supported formats are PDF, JPEG, and PNG only. There is no raw document download endpoint in Phase 2.
+Supported upload formats are PDF, JPEG, and PNG only. There is no raw document download endpoint through Phase 3.
+
+The implemented Phase 3 endpoints are:
+
+```text
+POST /api/v1/clients/{client_id}/documents/{document_id}/extractions
+GET /api/v1/clients/{client_id}/documents/{document_id}/extractions
+GET /api/v1/clients/{client_id}/documents/{document_id}/extractions/{run_id}
+POST /api/v1/clients/{client_id}/documents/{document_id}/extractions/{run_id}/fields/{field_id}/corrections
+```
 
 Manual API testing requires synthetic persisted identity, firm, membership, client, and client-access records. The application does not seed users or clients automatically and must not create synthetic users during production startup.
 
@@ -127,6 +140,26 @@ curl -X POST \
 ```
 
 Use only synthetic files. Do not upload or commit real invoices, receipts, statements, personal data, taxpayer identifiers, bank details, or credentials.
+
+Example extraction request after uploading a synthetic document:
+
+```bash
+curl -X POST \
+  -H "X-LedgerPilot-Dev-Subject: dev-accountant" \
+  -H "X-LedgerPilot-Firm: <synthetic-firm-id>" \
+  http://127.0.0.1:8000/api/v1/clients/<synthetic-client-id>/documents/<synthetic-document-id>/extractions
+```
+
+Example correction request:
+
+```bash
+curl -X POST \
+  -H "X-LedgerPilot-Dev-Subject: dev-accountant" \
+  -H "X-LedgerPilot-Firm: <synthetic-firm-id>" \
+  -H "Content-Type: application/json" \
+  -d '{"corrected_raw_value":"RM 100.00","corrected_normalized_value":"100.00","corrected_value_type":"decimal","reason":"Synthetic correction."}' \
+  http://127.0.0.1:8000/api/v1/clients/<synthetic-client-id>/documents/<synthetic-document-id>/extractions/<synthetic-run-id>/fields/<synthetic-field-id>/corrections
+```
 
 ## Verification
 
@@ -146,6 +179,8 @@ python -m build
 With local PostgreSQL running:
 
 ```bash
+alembic upgrade head
+alembic downgrade 0002_phase_2
 alembic upgrade head
 alembic downgrade 0001_phase_1
 alembic upgrade head

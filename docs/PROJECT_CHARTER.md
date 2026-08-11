@@ -16,9 +16,9 @@ AI output is untrusted input until validated. Deterministic accounting controls 
 
 ## Current Phase
 
-**Current status: Phase 0 — Foundation, Discovery, and Repository Audit**
+**Current status: Phase 3 — OCR & Structured Extraction (review branch)**
 
-Phase 0 is documentation-first. It establishes the repository baseline, project rules, MVP scope, risks, conceptual architecture, and minimal Python tooling. It does not build production accounting features.
+Phase 0 established the documentation-first foundation. Phase 1 added core infrastructure, Phase 2 added secure document intake, and Phase 3 adds structured extraction foundations. The project still does not build production accounting features.
 
 ## Target Users
 

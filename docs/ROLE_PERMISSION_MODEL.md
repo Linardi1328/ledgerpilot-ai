@@ -82,6 +82,7 @@ Legend:
 | --- | --- | --- | --- | --- | --- |
 | Upload documents | Limited | Yes | Yes | Yes, own authorised client only | No |
 | View documents | Limited | Yes, assigned/authorised clients | Yes, assigned/authorised clients | Limited, own submitted/authorised documents | Yes, authorised scope only |
+| Run extraction | No | Yes | Yes | No | No |
 | Correct extracted information | No | Yes, before approval | Yes, before approval or during correction workflow | No | No |
 | Review recommendations | Limited | Yes | Yes | No | Yes |
 | Approve ordinary transaction | No by default | Limited | Yes | No | No |

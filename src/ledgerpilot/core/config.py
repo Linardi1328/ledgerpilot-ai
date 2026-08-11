@@ -27,6 +27,11 @@ class MalwareScannerMode(StrEnum):
     DEVELOPMENT = "development"
 
 
+class ExtractionProviderMode(StrEnum):
+    DISABLED = "disabled"
+    DEVELOPMENT = "development"
+
+
 class Settings(BaseSettings):
     env: Environment = Field(default=Environment.DEVELOPMENT)
     database_url: str = Field(
@@ -39,6 +44,14 @@ class Settings(BaseSettings):
     document_storage_backend: DocumentStorageBackend = Field(default=DocumentStorageBackend.LOCAL)
     document_storage_root: str = Field(default="local_storage")
     malware_scanner_mode: MalwareScannerMode = Field(default=MalwareScannerMode.DISABLED)
+    extraction_provider: ExtractionProviderMode = Field(default=ExtractionProviderMode.DISABLED)
+    extraction_schema_version: str = Field(
+        default="ledgerpilot.extraction.v1",
+        min_length=1,
+        max_length=80,
+    )
+    extraction_max_fields: int = Field(default=500, gt=0, le=5000)
+    extraction_max_value_chars: int = Field(default=4000, gt=0, le=10000)
 
     model_config = SettingsConfigDict(
         env_prefix="LEDGERPILOT_",
@@ -52,6 +65,7 @@ class Settings(BaseSettings):
         uses_development_auth = self.auth_mode == AuthMode.DEVELOPMENT
         uses_local_storage = self.document_storage_backend == DocumentStorageBackend.LOCAL
         uses_development_scanner = self.malware_scanner_mode == MalwareScannerMode.DEVELOPMENT
+        uses_development_extraction = self.extraction_provider == ExtractionProviderMode.DEVELOPMENT
 
         if is_production and (self.dev_auth_enabled or uses_development_auth):
             raise ValueError("development authentication cannot be enabled in production")
@@ -63,10 +77,12 @@ class Settings(BaseSettings):
             raise ValueError(
                 "LEDGERPILOT_DEV_AUTH_ENABLED=true requires LEDGERPILOT_AUTH_MODE=development"
             )
-        if is_production and uses_local_storage:
-            raise ValueError("local document storage cannot be used in production")
         if is_production and uses_development_scanner:
             raise ValueError("development malware scanner cannot be used in production")
+        if is_production and uses_development_extraction:
+            raise ValueError("development extraction provider cannot be used in production")
+        if is_production and uses_local_storage:
+            raise ValueError("local document storage cannot be used in production")
         return self
 
     @property

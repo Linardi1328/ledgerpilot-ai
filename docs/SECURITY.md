@@ -1,6 +1,6 @@
 # Security Requirements
 
-This document defines security requirements and implementation boundaries. Phase 2 implements a local-development secure document-intake boundary only; most production security controls remain planned and must not be claimed as production-ready.
+This document defines security requirements and implementation boundaries. Phase 3 implements local-development secure document intake and structured extraction only; most production security controls remain planned and must not be claimed as production-ready.
 
 ## Authentication
 
@@ -49,6 +49,19 @@ This document defines security requirements and implementation boundaries. Phase
 - Prevent direct public access to private documents.
 
 Phase 2 implements the first document-intake boundary for PDF, JPEG, and PNG files with bounded streaming, SHA-256 metadata, signature/MIME/extension checks, local staging, quarantine, local accepted storage, and a guarded deterministic development scanner. See [Document Intake Security](DOCUMENT_INTAKE_SECURITY.md). Production object storage, real malware scanning, signed download access, retention automation, and production hardening remain future work.
+
+## Extraction Security
+
+- Treat OCR/extraction output as untrusted provider observations.
+- Validate provider output shape, field count, field paths, value lengths, value types, confidence range, page numbers, and source locators before persistence.
+- Reject provider-controlled tenant/client/document/run/storage identifiers.
+- Persist source SHA-256 and provider lineage for each extraction run.
+- Do not persist raw provider payloads, full OCR text, provider headers, credentials, storage keys, or filesystem paths by default.
+- Do not log full extracted values or corrected values.
+- Permit extraction only from stored documents with accepted `DocumentFile` records.
+- Require `RUN_EXTRACTION` for extraction triggers and `CORRECT_EXTRACTED_INFORMATION` for corrections.
+
+Phase 3 implements only a guarded deterministic development extraction provider. It is not real OCR and production refuses it through settings validation. Production OCR providers, provider timeouts, retry policy, rate limiting, and provider privacy/security assessment remain future work.
 
 ## Audit Logging
 
@@ -99,7 +112,7 @@ Phase 2 implements the first document-intake boundary for PDF, JPEG, and PNG fil
 
 ## Security Testing
 
-Future security testing should include unit tests, integration tests, tenant-isolation tests, access-control tests, file-validation tests, secret-scanning checks, dependency scanning, and penetration testing before production use.
+Future security testing should include unit tests, integration tests, tenant-isolation tests, access-control tests, file-validation tests, provider-output validation tests, secret-scanning checks, dependency scanning, and penetration testing before production use.
 
 ## Validation Status
 

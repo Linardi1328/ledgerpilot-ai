@@ -1,6 +1,6 @@
 # Functional Requirements
 
-Functional requirements are stable identifiers for planned product capability. Phase 0 documents these requirements; it does not implement application functionality.
+Functional requirements are stable identifiers for product capability. Phase 3 implements infrastructure, secure document intake, and structured extraction foundations only; accounting workflow requirements remain future work.
 
 | ID | Title | Actor | Priority | Scope | Preconditions | Expected result | Controls | Acceptance evidence | Description |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -11,7 +11,7 @@ Functional requirements are stable identifiers for planned product capability. P
 | FR-005 | File validation | System | Must | MVP | Document submitted | Invalid files are rejected or quarantined | Type allowlist; size limit; malware scan | File validation tests | Validate uploads before storage or extraction. |
 | FR-006 | Document storage | System | Must | MVP | File passes validation | Original file is stored with metadata | Controlled storage; signed access | Storage metadata test | Preserve source evidence and metadata for later traceability. |
 | FR-007 | Structured manual input | Accountant | Must | MVP | Synthetic purchase invoice is available | Structured invoice fields can be entered | Required-field validation | Manual input workflow test | Support manual structured input before OCR is implemented. |
-| FR-008 | Extraction run recording | System | Should | Future | Extraction provider is configured | Extraction run and provider metadata are recorded | Provider boundary; version tracking | Extraction-run persistence test | Track future OCR/AI extraction attempts and outputs. |
+| FR-008 | Extraction run recording | Accountant, Senior Reviewer, System | Should | MVP | Stored accepted document exists and extraction provider is configured | Extraction run, provider metadata, source hash, extracted fields, confidence, and correction history are recorded | Provider boundary; version tracking; tenant/client scope | Extraction-run persistence and API tests | Track OCR/extraction attempts and outputs without treating them as accounting truth. |
 | FR-009 | Field validation | System | Must | MVP | Structured fields exist | Missing or invalid fields are flagged | Deterministic validation | Validation test | Validate required invoice fields before recommendation. |
 | FR-010 | Arithmetic validation | System | Must | MVP | Invoice totals and lines exist | Arithmetic mismatches block approval | Decimal arithmetic; deterministic rules | Arithmetic test | Validate line totals, taxes, subtotals, and grand total. |
 | FR-011 | Duplicate detection | System, Accountant | Must | MVP | Invoice identifiers or fingerprints exist | Possible duplicates are flagged with explanation | Explainable warning; reviewer decision | Duplicate-detection test | Identify potential duplicate documents or invoices before approval. |

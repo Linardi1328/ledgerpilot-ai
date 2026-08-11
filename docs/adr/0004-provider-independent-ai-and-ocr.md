@@ -31,4 +31,4 @@ Use provider-independent interfaces for OCR, structured extraction, document cla
 
 ## Follow-up
 
-Define minimal provider contracts when Phase 3 begins and validate them with realistic synthetic documents.
+Phase 3 defines the structured extraction provider contract and validates it with synthetic documents. Future phases still need provider contracts for document classification, AI recommendations, and production OCR adapters.

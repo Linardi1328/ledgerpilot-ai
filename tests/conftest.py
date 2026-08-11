@@ -10,7 +10,13 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from ledgerpilot.api.app import create_app
-from ledgerpilot.core.config import AuthMode, Environment, MalwareScannerMode, Settings
+from ledgerpilot.core.config import (
+    AuthMode,
+    Environment,
+    ExtractionProviderMode,
+    MalwareScannerMode,
+    Settings,
+)
 from ledgerpilot.identity.roles import Role
 from ledgerpilot.persistence.base import Base
 from ledgerpilot.persistence.models.identity import ClientEntity, Firm, FirmMembership, User
@@ -33,6 +39,7 @@ def settings(storage_root: Path) -> Settings:
         dev_auth_enabled=True,
         document_storage_root=str(storage_root),
         malware_scanner_mode=MalwareScannerMode.DEVELOPMENT,
+        extraction_provider=ExtractionProviderMode.DEVELOPMENT,
     )
 
 
