@@ -6,7 +6,18 @@ from pydantic import ValidationError
 from ledgerpilot.core.config import AuthMode, Environment, Settings
 
 
-def test_development_settings_default_to_dev_auth_disabled() -> None:
+def test_development_settings_default_to_dev_auth_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for key in (
+        "LEDGERPILOT_ENV",
+        "LEDGERPILOT_DATABASE_URL",
+        "LEDGERPILOT_LOG_LEVEL",
+        "LEDGERPILOT_AUTH_MODE",
+        "LEDGERPILOT_DEV_AUTH_ENABLED",
+    ):
+        monkeypatch.delenv(key, raising=False)
+
     settings = Settings(_env_file=None)
     assert settings.env is Environment.DEVELOPMENT
     assert settings.auth_mode is AuthMode.DISABLED
