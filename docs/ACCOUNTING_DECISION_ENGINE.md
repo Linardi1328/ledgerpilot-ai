@@ -10,6 +10,14 @@ Phase 4 recommendations are not approvals. Human approval, rejection, review rou
 
 Only extraction runs with `status == succeeded` and downstream-ready semantics may enter the accounting decision engine. Pending, running, failed, or non-downstream-ready extraction runs are rejected before an accounting decision run is created.
 
+## Supported Document Types
+
+Phase 4 currently supports `purchase_invoice` only for purchase-invoice-specific accounting recommendations and proposed journals.
+
+If `document.type` is missing, the run records a required-field finding and does not generate purchase-invoice recommendations or a proposed journal. If `document.type` is present but unsupported, such as `receipt`, the run records `unsupported_document_type` and does not perform supplier accounting mapping, purchase-invoice recommendations, or purchase-invoice journal generation.
+
+Unsupported document types are reviewable decision attempts, not infrastructure failures.
+
 The decision run retains:
 
 - Firm, client, document, and extraction-run scope.
@@ -49,6 +57,8 @@ invoice.subtotal + invoice.tax == invoice.total
 
 Mismatches become structured findings. Extracted values are not silently changed.
 
+Accounting-domain monetary values are validated before proposed journal generation and persistence. Values must parse as finite Decimal values, fit exactly in the persisted `Numeric(18,4)` domain, and avoid unsupported fractional precision. Journal-line debit or credit amounts must be strictly greater than zero. LedgerPilot does not silently round, coerce, or normalize invalid monetary values to make them fit persistence; invalid values produce `invalid_monetary_value` findings and no proposed journal.
+
 ## Supplier Matching
 
 Supplier matching uses synthetic configurable directory entries. Matching is scoped through the decision request's firm and client context and supports:
@@ -78,6 +88,8 @@ Each recommendation stores recommended value, confidence, explanation, evidence,
 
 The current rule configuration is synthetic. Tax-code recommendations are placeholders marked for review and must not be treated as jurisdiction-specific Malaysian tax advice.
 
+Purchase-invoice recommendations are generated only for supported `purchase_invoice` decision inputs. Unsupported or missing document types receive findings instead of type-specific accounting treatment.
+
 ## Proposed Journals
 
 Phase 4 can produce a proposed journal and journal lines for future Phase 5 review. Journal lines include account reference, Decimal debit and credit amounts, optional tax-code and cost-centre references, explanation, and lineage metadata.
@@ -90,11 +102,15 @@ sum(debits) == sum(credits)
 
 An unbalanced proposed journal is explicitly flagged with `unbalanced_journal` and is not represented as valid because of recommendation confidence.
 
+The database invariant ties `total_debits`, `total_credits`, `is_balanced`, and `balance_status` together. The only valid balance states are balanced totals with `is_balanced == true` and `balance_status == balanced`, or unequal totals with `is_balanced == false` and `balance_status == unbalanced`.
+
 ## Findings
 
 Implemented stable finding codes include:
 
 - `missing_required_field`
+- `unsupported_document_type`
+- `invalid_monetary_value`
 - `arithmetic_mismatch`
 - `possible_duplicate`
 - `new_supplier`

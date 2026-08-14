@@ -154,7 +154,8 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.CheckConstraint(
             "code in ("
-            "'missing_required_field', 'arithmetic_mismatch', 'possible_duplicate', "
+            "'missing_required_field', 'unsupported_document_type', "
+            "'invalid_monetary_value', 'arithmetic_mismatch', 'possible_duplicate', "
             "'new_supplier', 'low_extraction_confidence', 'unknown_account_mapping', "
             "'tax_review_required', 'unbalanced_journal'"
             ")",
@@ -298,8 +299,10 @@ def upgrade() -> None:
             name="ck_proposed_journals_balance_status",
         ),
         sa.CheckConstraint(
-            "(is_balanced = true and total_debits = total_credits) "
-            "or (is_balanced = false and total_debits <> total_credits)",
+            "(total_debits = total_credits and is_balanced = true "
+            "and balance_status = 'balanced') "
+            "or (total_debits <> total_credits and is_balanced = false "
+            "and balance_status = 'unbalanced')",
             name="ck_proposed_journals_balance_consistency",
         ),
         sa.CheckConstraint(

@@ -14,6 +14,8 @@ class AccountingDecisionFailureCode(StrEnum):
 
 class AccountingFindingCode(StrEnum):
     MISSING_REQUIRED_FIELD = "missing_required_field"
+    UNSUPPORTED_DOCUMENT_TYPE = "unsupported_document_type"
+    INVALID_MONETARY_VALUE = "invalid_monetary_value"
     ARITHMETIC_MISMATCH = "arithmetic_mismatch"
     POSSIBLE_DUPLICATE = "possible_duplicate"
     NEW_SUPPLIER = "new_supplier"

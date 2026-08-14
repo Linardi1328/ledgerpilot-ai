@@ -119,7 +119,9 @@ The Phase 4 review branch adds an accounting decision engine foundation:
 - Immutable, versioned accounting decision runs scoped to firm, client, document, and extraction run.
 - Eligibility enforcement so only succeeded downstream-ready extraction runs can enter accounting decisions.
 - Effective extracted-value consumption, where latest human corrections override provider values without mutating original provider observations.
+- Purchase-invoice-specific accounting treatment is gated to `document.type == purchase_invoice`.
 - Deterministic required-field, arithmetic, duplicate, supplier-matching, and journal-balance checks.
+- Accounting-domain monetary validation before journal generation or persistence, with no silent rounding.
 - Provider/rule-independent recommendation records for GL account, tax code, cost centre, and category.
 - Proposed journal and journal-line records for future human review.
 - Structured findings and flags with stable machine-readable codes.
@@ -127,7 +129,7 @@ The Phase 4 review branch adds an accounting decision engine foundation:
 - Accountant/Senior Reviewer decision execution permission; Firm Admin, Auditor, and Client Submitter cannot execute decision runs.
 - PostgreSQL migration and constraint coverage for Phase 4 ownership and accounting invariants.
 
-Phase 4 recommendations are not approvals and are not professional accounting or tax advice. The current accounting policy and tax-code behavior use synthetic configurable rules only and require future practitioner validation.
+Phase 4 recommendations are not approvals and are not professional accounting or tax advice. Unsupported document types and invalid monetary values produce review findings rather than type-specific journals. The current accounting policy and tax-code behavior use synthetic configurable rules only and require future practitioner validation.
 
 ## Planned Capabilities
 
@@ -238,7 +240,7 @@ The implemented endpoints are:
 - `GET /api/v1/clients/{client_id}/documents/{document_id}/extractions/{extraction_run_id}/accounting-decisions`
 - `GET /api/v1/clients/{client_id}/documents/{document_id}/extractions/{extraction_run_id}/accounting-decisions/{decision_run_id}`
 
-Decision responses include validation findings, supplier-match candidates, duplicate candidates, recommendations, explanations, evidence, rule lineage, proposed journals, and journal-balance state. They do not include approval, rejection, review routing, export, payments, SQL Account, MyInvois, or supplier bank-detail changes. See [Accounting Decision Engine](docs/ACCOUNTING_DECISION_ENGINE.md).
+Decision responses include validation findings, supplier-match candidates, duplicate candidates, recommendations, explanations, evidence, rule lineage, proposed journals, and internally consistent journal-balance state. Phase 4 only generates purchase-invoice-specific recommendations and journals for `purchase_invoice`; unsupported document types produce findings and no type-specific journal. They do not include approval, rejection, review routing, export, payments, SQL Account, MyInvois, or supplier bank-detail changes. See [Accounting Decision Engine](docs/ACCOUNTING_DECISION_ENGINE.md).
 
 ## Proposed Technology
 

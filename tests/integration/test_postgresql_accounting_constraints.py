@@ -207,6 +207,96 @@ def test_postgresql_enforces_accounting_decision_ownership_and_invariants(
         )
 
 
+def test_postgresql_enforces_complete_journal_balance_state_consistency(
+    postgresql_engine: Engine,
+) -> None:
+    with Session(postgresql_engine, expire_on_commit=False) as session:
+        seed = _seed_postgresql_accounting_constraint_data(session)
+
+        for total_debits, total_credits, balance_status, is_balanced in (
+            (
+                Decimal("100.0000"),
+                Decimal("100.0000"),
+                JournalBalanceStatus.UNBALANCED.value,
+                True,
+            ),
+            (
+                Decimal("100.0000"),
+                Decimal("100.0000"),
+                JournalBalanceStatus.BALANCED.value,
+                False,
+            ),
+            (
+                Decimal("100.0000"),
+                Decimal("99.9900"),
+                JournalBalanceStatus.BALANCED.value,
+                True,
+            ),
+            (
+                Decimal("100.0000"),
+                Decimal("99.9900"),
+                JournalBalanceStatus.BALANCED.value,
+                False,
+            ),
+        ):
+            decision = _persist_additional_decision(session, seed)
+            _assert_integrity_error(
+                session,
+                _proposed_journal(
+                    decision=decision,
+                    total_debits=total_debits,
+                    total_credits=total_credits,
+                    balance_status=balance_status,
+                    is_balanced=is_balanced,
+                ),
+            )
+
+        balanced_decision = _persist_additional_decision(session, seed)
+        max_amount = Decimal("99999999999999.9999")
+        balanced_journal = _proposed_journal(
+            decision=balanced_decision,
+            total_debits=max_amount,
+            total_credits=max_amount,
+            balance_status=JournalBalanceStatus.BALANCED.value,
+            is_balanced=True,
+        )
+        session.add(balanced_journal)
+        session.flush()
+        session.add_all(
+            [
+                _proposed_journal_line(
+                    journal=balanced_journal,
+                    line_number=1,
+                    account_reference="expense:synthetic",
+                    debit_amount=max_amount,
+                    credit_amount=Decimal("0.0000"),
+                ),
+                _proposed_journal_line(
+                    journal=balanced_journal,
+                    line_number=2,
+                    account_reference="liability:synthetic",
+                    debit_amount=Decimal("0.0000"),
+                    credit_amount=max_amount,
+                ),
+            ]
+        )
+        session.commit()
+        session.refresh(balanced_journal)
+        assert balanced_journal.total_debits == max_amount
+        assert balanced_journal.total_credits == max_amount
+
+        unbalanced_decision = _persist_additional_decision(session, seed)
+        unbalanced_journal = _proposed_journal(
+            decision=unbalanced_decision,
+            total_debits=Decimal("100.0000"),
+            total_credits=Decimal("99.9900"),
+            balance_status=JournalBalanceStatus.UNBALANCED.value,
+            is_balanced=False,
+        )
+        session.add(unbalanced_journal)
+        session.commit()
+
+
 def _seed_postgresql_accounting_constraint_data(
     session: Session,
 ) -> PostgreSQLAccountingConstraintSeed:
@@ -374,6 +464,63 @@ def _decision_run(
         source_sha256=run.source_sha256,
         started_at=now,
         completed_at=now,
+    )
+
+
+def _persist_additional_decision(
+    session: Session,
+    seed: PostgreSQLAccountingConstraintSeed,
+) -> AccountingDecisionRun:
+    decision = _decision_run(seed)
+    session.add(decision)
+    session.commit()
+    return decision
+
+
+def _proposed_journal(
+    *,
+    decision: AccountingDecisionRun,
+    total_debits: Decimal,
+    total_credits: Decimal,
+    balance_status: str,
+    is_balanced: bool,
+) -> ProposedJournal:
+    return ProposedJournal(
+        decision_run_id=decision.id,
+        firm_id=decision.firm_id,
+        client_id=decision.client_id,
+        document_id=decision.document_id,
+        extraction_run_id=decision.extraction_run_id,
+        currency="MYR",
+        total_debits=total_debits,
+        total_credits=total_credits,
+        balance_status=balance_status,
+        is_balanced=is_balanced,
+        explanation="Synthetic journal balance invariant fixture.",
+    )
+
+
+def _proposed_journal_line(
+    *,
+    journal: ProposedJournal,
+    line_number: int,
+    account_reference: str,
+    debit_amount: Decimal,
+    credit_amount: Decimal,
+) -> ProposedJournalLine:
+    return ProposedJournalLine(
+        proposed_journal_id=journal.id,
+        decision_run_id=journal.decision_run_id,
+        firm_id=journal.firm_id,
+        client_id=journal.client_id,
+        document_id=journal.document_id,
+        extraction_run_id=journal.extraction_run_id,
+        line_number=line_number,
+        account_reference=account_reference,
+        debit_amount=debit_amount,
+        credit_amount=credit_amount,
+        explanation="Synthetic exact monetary persistence fixture.",
+        lineage_json={},
     )
 
 

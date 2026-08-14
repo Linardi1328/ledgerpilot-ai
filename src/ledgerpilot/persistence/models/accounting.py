@@ -447,8 +447,10 @@ class ProposedJournal(Base):
             name="ck_proposed_journals_balance_status",
         ),
         CheckConstraint(
-            "(is_balanced = true and total_debits = total_credits) "
-            "or (is_balanced = false and total_debits <> total_credits)",
+            "(total_debits = total_credits and is_balanced = true "
+            "and balance_status = 'balanced') "
+            "or (total_debits <> total_credits and is_balanced = false "
+            "and balance_status = 'unbalanced')",
             name="ck_proposed_journals_balance_consistency",
         ),
         CheckConstraint(

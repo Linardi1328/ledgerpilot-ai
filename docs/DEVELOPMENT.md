@@ -137,6 +137,8 @@ GET /api/v1/clients/{client_id}/documents/{document_id}/extractions/{extraction_
 
 Only succeeded downstream-ready extraction runs are eligible for accounting decisions. Decision execution requires the `run_accounting_decision` permission.
 
+Phase 4 currently supports purchase-invoice-specific recommendations and proposed journals only when the effective `document.type` is `purchase_invoice`. Unsupported or missing document types create review findings and no type-specific journal. Monetary values are validated against the accounting `Numeric(18,4)` domain before journal generation; invalid precision, magnitude, zero journal amounts, or negative accounting amounts are not rounded or coerced into persistence.
+
 Manual API testing requires synthetic persisted identity, firm, membership, client, and client-access records. The application does not seed users or clients automatically and must not create synthetic users during production startup.
 
 Example upload shape for a synthetic local file:

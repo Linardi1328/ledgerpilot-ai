@@ -26,6 +26,10 @@ from ledgerpilot.accounting.types import (
 _ZERO = Decimal("0")
 _DUPLICATE_SCORE_DENOMINATOR = Decimal("5")
 _DUPLICATE_THRESHOLD = Decimal("0.8000")
+_SUPPORTED_ACCOUNTING_DOCUMENT_TYPES = frozenset({"purchase_invoice"})
+_ACCOUNTING_MONEY_PRECISION = 18
+_ACCOUNTING_MONEY_SCALE = 4
+_MAX_ACCOUNTING_MONEY = Decimal("99999999999999.9999")
 
 
 class AccountingDecisionEngine:
@@ -46,9 +50,12 @@ class AccountingDecisionEngine:
         del extraction_run_id
         findings: list[AccountingFindingDecision] = []
         document_type = _field_text(effective_values, "document.type")
+        is_supported_document_type = document_type in _SUPPORTED_ACCOUNTING_DOCUMENT_TYPES
         required_fields = self._policy.required_fields_for(document_type)
 
         findings.extend(_required_field_findings(effective_values, required_fields))
+        if document_type is not None and not is_supported_document_type:
+            findings.append(_unsupported_document_type_finding(document_type))
         findings.extend(
             _low_confidence_findings(
                 effective_values,
@@ -56,39 +63,50 @@ class AccountingDecisionEngine:
                 self._policy.low_confidence_threshold,
             )
         )
-        findings.extend(_arithmetic_findings(effective_values))
 
-        supplier_match = self._supplier_match(
-            firm_id=firm_id,
-            client_id=client_id,
-            effective_values=effective_values,
-        )
-        matched_supplier = self._matched_supplier_entry(
-            firm_id=firm_id,
-            client_id=client_id,
-            supplier_match=supplier_match,
-        )
-        if _field_text(effective_values, "supplier.name") and supplier_match.status == (
-            SupplierMatchStatus.NO_MATCH
-        ):
-            findings.append(
-                AccountingFindingDecision(
-                    code=AccountingFindingCode.NEW_SUPPLIER,
-                    severity=AccountingFindingSeverity.WARNING,
-                    field_path="supplier.name",
-                    description="Supplier was not matched to the synthetic directory.",
-                    evidence={"field_path": "supplier.name"},
-                )
+        monetary_values: dict[str, Decimal] = {}
+        monetary_findings: tuple[AccountingFindingDecision, ...] = ()
+        if is_supported_document_type:
+            monetary_values, monetary_findings = _accounting_monetary_values(effective_values)
+            findings.extend(monetary_findings)
+            findings.extend(_arithmetic_findings(effective_values, monetary_values))
+
+        supplier_match = SupplierMatchDecision(status=SupplierMatchStatus.NO_MATCH, candidates=())
+        matched_supplier: SupplierDirectoryEntry | None = None
+        if is_supported_document_type:
+            supplier_match = self._supplier_match(
+                firm_id=firm_id,
+                client_id=client_id,
+                effective_values=effective_values,
             )
+            matched_supplier = self._matched_supplier_entry(
+                firm_id=firm_id,
+                client_id=client_id,
+                supplier_match=supplier_match,
+            )
+            if _field_text(effective_values, "supplier.name") and supplier_match.status == (
+                SupplierMatchStatus.NO_MATCH
+            ):
+                findings.append(
+                    AccountingFindingDecision(
+                        code=AccountingFindingCode.NEW_SUPPLIER,
+                        severity=AccountingFindingSeverity.WARNING,
+                        field_path="supplier.name",
+                        description="Supplier was not matched to the synthetic directory.",
+                        evidence={"field_path": "supplier.name"},
+                    )
+                )
 
-        duplicate_candidates = _duplicate_candidates(
-            document_id=document_id,
-            source_sha256=source_sha256,
-            effective_values=effective_values,
-            prior_snapshots=prior_snapshots,
-            engine_name=self._policy.engine_name,
-            engine_version=self._policy.engine_version,
-        )
+        duplicate_candidates: tuple[DuplicateCandidateDecision, ...] = ()
+        if is_supported_document_type:
+            duplicate_candidates = _duplicate_candidates(
+                document_id=document_id,
+                source_sha256=source_sha256,
+                effective_values=effective_values,
+                prior_snapshots=prior_snapshots,
+                engine_name=self._policy.engine_name,
+                engine_version=self._policy.engine_version,
+            )
         if duplicate_candidates:
             findings.append(
                 AccountingFindingDecision(
@@ -99,8 +117,14 @@ class AccountingDecisionEngine:
                 )
             )
 
-        recommendations = self._recommendations(matched_supplier)
-        if matched_supplier is None and _field_text(effective_values, "supplier.name"):
+        recommendations: tuple[AccountingRecommendationDecision, ...] = ()
+        if is_supported_document_type:
+            recommendations = self._recommendations(matched_supplier)
+        if (
+            is_supported_document_type
+            and matched_supplier is None
+            and _field_text(effective_values, "supplier.name")
+        ):
             findings.append(
                 AccountingFindingDecision(
                     code=AccountingFindingCode.UNKNOWN_ACCOUNT_MAPPING,
@@ -110,7 +134,7 @@ class AccountingDecisionEngine:
                     evidence={"field_path": "supplier.name"},
                 )
             )
-        if document_type == "purchase_invoice":
+        if is_supported_document_type:
             findings.append(
                 AccountingFindingDecision(
                     code=AccountingFindingCode.TAX_REVIEW_REQUIRED,
@@ -120,10 +144,13 @@ class AccountingDecisionEngine:
                 )
             )
 
-        proposed_journal = self._proposed_journal(
-            effective_values=effective_values,
-            recommendations=recommendations,
-        )
+        proposed_journal: ProposedJournalDecision | None = None
+        if is_supported_document_type and not monetary_findings:
+            proposed_journal = self._proposed_journal(
+                effective_values=effective_values,
+                recommendations=recommendations,
+                total=monetary_values.get("invoice.total"),
+            )
         if proposed_journal is not None and not proposed_journal.is_balanced:
             findings.append(
                 AccountingFindingDecision(
@@ -291,8 +318,8 @@ class AccountingDecisionEngine:
         *,
         effective_values: dict[str, EffectiveExtractionValue],
         recommendations: tuple[AccountingRecommendationDecision, ...],
+        total: Decimal | None,
     ) -> ProposedJournalDecision | None:
-        total = _field_decimal(effective_values, "invoice.total")
         currency = _field_text(effective_values, "invoice.currency")
         expense_account = _recommendation_value(
             recommendations,
@@ -374,6 +401,20 @@ def _required_field_findings(
     return tuple(findings)
 
 
+def _unsupported_document_type_finding(document_type: str) -> AccountingFindingDecision:
+    return AccountingFindingDecision(
+        code=AccountingFindingCode.UNSUPPORTED_DOCUMENT_TYPE,
+        severity=AccountingFindingSeverity.WARNING,
+        field_path="document.type",
+        description="Document type is not supported for Phase 4 accounting decisions.",
+        evidence={
+            "field_path": "document.type",
+            "observed_document_type": document_type,
+            "supported_document_types": tuple(sorted(_SUPPORTED_ACCOUNTING_DOCUMENT_TYPES)),
+        },
+    )
+
+
 def _low_confidence_findings(
     effective_values: dict[str, EffectiveExtractionValue],
     field_paths: tuple[str, ...],
@@ -401,14 +442,88 @@ def _low_confidence_findings(
     return tuple(findings)
 
 
+def _accounting_monetary_values(
+    effective_values: dict[str, EffectiveExtractionValue],
+) -> tuple[dict[str, Decimal], tuple[AccountingFindingDecision, ...]]:
+    values: dict[str, Decimal] = {}
+    findings: list[AccountingFindingDecision] = []
+    for field_path, require_positive in (
+        ("invoice.total", True),
+        ("invoice.subtotal", False),
+        ("invoice.tax", False),
+    ):
+        value, finding = _accounting_money_value(
+            effective_values,
+            field_path,
+            require_positive=require_positive,
+        )
+        if value is not None:
+            values[field_path] = value
+        if finding is not None:
+            findings.append(finding)
+    return values, tuple(findings)
+
+
+def _accounting_money_value(
+    effective_values: dict[str, EffectiveExtractionValue],
+    field_path: str,
+    *,
+    require_positive: bool,
+) -> tuple[Decimal | None, AccountingFindingDecision | None]:
+    text = _field_text(effective_values, field_path)
+    if text is None:
+        return None, None
+    try:
+        value = Decimal(text)
+    except InvalidOperation:
+        return None, _invalid_monetary_value_finding(field_path, "not_a_finite_decimal")
+    if not value.is_finite():
+        return None, _invalid_monetary_value_finding(field_path, "not_a_finite_decimal")
+    exponent = value.as_tuple().exponent
+    if not isinstance(exponent, int):
+        return None, _invalid_monetary_value_finding(field_path, "not_a_finite_decimal")
+    if exponent < -_ACCOUNTING_MONEY_SCALE:
+        return None, _invalid_monetary_value_finding(
+            field_path,
+            "unsupported_fractional_precision",
+        )
+    if value.copy_abs() > _MAX_ACCOUNTING_MONEY:
+        return None, _invalid_monetary_value_finding(field_path, "outside_supported_range")
+    if require_positive and value <= _ZERO:
+        return None, _invalid_monetary_value_finding(field_path, "must_be_greater_than_zero")
+    if not require_positive and value < _ZERO:
+        return None, _invalid_monetary_value_finding(field_path, "must_not_be_negative")
+    return value, None
+
+
+def _invalid_monetary_value_finding(field_path: str, reason: str) -> AccountingFindingDecision:
+    return AccountingFindingDecision(
+        code=AccountingFindingCode.INVALID_MONETARY_VALUE,
+        severity=AccountingFindingSeverity.ERROR,
+        field_path=field_path,
+        description="Extracted monetary value is outside the supported accounting domain.",
+        evidence={
+            "field_path": field_path,
+            "reason": reason,
+            "numeric_precision": _ACCOUNTING_MONEY_PRECISION,
+            "numeric_scale": _ACCOUNTING_MONEY_SCALE,
+            "maximum_absolute_value": _decimal_to_string(_MAX_ACCOUNTING_MONEY),
+        },
+    )
+
+
 def _arithmetic_findings(
     effective_values: dict[str, EffectiveExtractionValue],
+    monetary_values: dict[str, Decimal],
 ) -> tuple[AccountingFindingDecision, ...]:
-    subtotal = _field_decimal(effective_values, "invoice.subtotal")
-    tax = _field_decimal(effective_values, "invoice.tax")
-    total = _field_decimal(effective_values, "invoice.total")
-    if subtotal is None or tax is None or total is None:
+    arithmetic_fields = ("invoice.subtotal", "invoice.tax", "invoice.total")
+    if any(_field_text(effective_values, field_path) is None for field_path in arithmetic_fields):
         return ()
+    if any(field_path not in monetary_values for field_path in arithmetic_fields):
+        return ()
+    subtotal = monetary_values["invoice.subtotal"]
+    tax = monetary_values["invoice.tax"]
+    total = monetary_values["invoice.total"]
     calculated_total = subtotal + tax
     if calculated_total == total:
         return ()

@@ -62,7 +62,11 @@ class SyntheticAccountingDecisionPolicy:
         supplier_directory: Sequence[SupplierDirectoryEntry] | None = None,
         synthetic_journal_credit_adjustment: Decimal = Decimal("0"),
     ) -> None:
-        self._supplier_directory = tuple(supplier_directory or _default_supplier_directory())
+        self._supplier_directory = (
+            _default_supplier_directory()
+            if supplier_directory is None
+            else tuple(supplier_directory)
+        )
         self._synthetic_journal_credit_adjustment = synthetic_journal_credit_adjustment
 
     @property

@@ -63,20 +63,24 @@ flowchart TD
     C -->|No| D[Access denied]
     C -->|Yes| E[Build effective values from extraction fields and latest corrections]
     E --> F[Required-field validation]
-    F --> G[Decimal arithmetic validation where sufficient data exists]
-    G --> H[Synthetic supplier matching]
-    H --> I[Same-scope duplicate candidate detection]
-    I --> J[Synthetic configurable recommendations]
-    J --> K[Proposed journal generation]
-    K --> L{Debits equal credits?}
-    L -->|Yes| M[Balanced proposed journal]
-    L -->|No| N[Unbalanced journal finding]
-    M --> O[AccountingDecisionRun succeeded]
-    N --> O
-    O --> P[Safe audit event]
+    F --> G{Supported document type?}
+    G -->|No| H[Unsupported or missing document-type finding]
+    G -->|Yes| I[Accounting-domain Decimal money validation]
+    I --> J[Decimal arithmetic validation where sufficient data exists]
+    J --> K[Synthetic supplier matching]
+    K --> L[Same-scope duplicate candidate detection]
+    L --> M[Synthetic configurable recommendations]
+    M --> N[Proposed journal generation]
+    N --> O{Debits equal credits?}
+    O -->|Yes| P[Balanced proposed journal]
+    O -->|No| Q[Unbalanced journal finding]
+    H --> R[AccountingDecisionRun succeeded]
+    P --> R
+    Q --> R
+    R --> S[Safe audit event]
 ```
 
-Phase 4 creates recommendations only. It does not approve, reject, route, export, post, pay, alter supplier bank details, or provide professional accounting/tax advice.
+Phase 4 creates recommendations only. Purchase-invoice-specific recommendations and journals are generated only for `purchase_invoice`. Unsupported document types and invalid monetary values create findings, not type-specific journals or persistence failures. Phase 4 does not approve, reject, route, export, post, pay, alter supplier bank details, or provide professional accounting/tax advice.
 
 ## Overall Document Processing Flow
 

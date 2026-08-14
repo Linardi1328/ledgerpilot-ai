@@ -46,6 +46,41 @@ def test_complete_purchase_invoice_produces_recommendations_and_balanced_journal
     assert all(isinstance(line.credit_amount, Decimal) for line in output.proposed_journal.lines)
 
 
+def test_unsupported_document_type_produces_no_purchase_invoice_accounting() -> None:
+    output = AccountingDecisionEngine(SyntheticAccountingDecisionPolicy()).decide(
+        firm_id=uuid.uuid4(),
+        client_id=uuid.uuid4(),
+        document_id=uuid.uuid4(),
+        extraction_run_id=uuid.uuid4(),
+        source_sha256="a" * 64,
+        effective_values=_purchase_invoice_values(document_type="receipt"),
+        prior_snapshots=(),
+    )
+
+    assert output.supplier_match.status == SupplierMatchStatus.NO_MATCH
+    assert output.recommendations == ()
+    assert output.proposed_journal is None
+    assert AccountingFindingCode.UNSUPPORTED_DOCUMENT_TYPE in _finding_codes(output)
+    assert AccountingFindingCode.TAX_REVIEW_REQUIRED not in _finding_codes(output)
+
+
+def test_missing_document_type_produces_no_purchase_invoice_accounting() -> None:
+    output = AccountingDecisionEngine(SyntheticAccountingDecisionPolicy()).decide(
+        firm_id=uuid.uuid4(),
+        client_id=uuid.uuid4(),
+        document_id=uuid.uuid4(),
+        extraction_run_id=uuid.uuid4(),
+        source_sha256="a" * 64,
+        effective_values=_purchase_invoice_values(document_type=None),
+        prior_snapshots=(),
+    )
+
+    assert output.supplier_match.status == SupplierMatchStatus.NO_MATCH
+    assert output.recommendations == ()
+    assert output.proposed_journal is None
+    assert AccountingFindingCode.MISSING_REQUIRED_FIELD in _finding_codes(output)
+
+
 def test_missing_required_field_creates_structured_finding_without_inventing_value() -> None:
     values = _purchase_invoice_values()
     del values["invoice.number"]
@@ -121,6 +156,77 @@ def test_arithmetic_mismatch_creates_finding_without_changing_values() -> None:
     assert values["invoice.total"].value == "100.00"
 
 
+def test_invalid_zero_invoice_total_creates_finding_and_no_journal() -> None:
+    output = _decide_for_total("0")
+
+    assert AccountingFindingCode.INVALID_MONETARY_VALUE in _finding_codes(output)
+    assert output.proposed_journal is None
+
+
+def test_invalid_negative_invoice_total_creates_finding_and_no_journal() -> None:
+    output = _decide_for_total("-100.00")
+
+    assert AccountingFindingCode.INVALID_MONETARY_VALUE in _finding_codes(output)
+    assert output.proposed_journal is None
+
+
+def test_invalid_fractional_precision_creates_finding_and_no_journal() -> None:
+    output = _decide_for_total("100.12345")
+
+    invalid = [
+        finding
+        for finding in output.findings
+        if finding.code == AccountingFindingCode.INVALID_MONETARY_VALUE
+    ]
+    assert len(invalid) == 1
+    assert invalid[0].evidence is not None
+    assert invalid[0].evidence["reason"] == "unsupported_fractional_precision"
+    assert output.proposed_journal is None
+
+
+def test_maximum_supported_monetary_boundary_is_valid() -> None:
+    output = _decide_for_total("99999999999999.9999")
+
+    assert AccountingFindingCode.INVALID_MONETARY_VALUE not in _finding_codes(output)
+    assert output.proposed_journal is not None
+    assert output.proposed_journal.total_debits == Decimal("99999999999999.9999")
+    assert output.proposed_journal.total_credits == Decimal("99999999999999.9999")
+
+
+def test_outside_supported_monetary_magnitude_creates_finding_and_no_journal() -> None:
+    output = _decide_for_total("100000000000000.0000")
+
+    invalid = [
+        finding
+        for finding in output.findings
+        if finding.code == AccountingFindingCode.INVALID_MONETARY_VALUE
+    ]
+    assert len(invalid) == 1
+    assert invalid[0].evidence is not None
+    assert invalid[0].evidence["reason"] == "outside_supported_range"
+    assert output.proposed_journal is None
+
+
+def test_invalid_arithmetic_operand_creates_finding_without_arithmetic_crash() -> None:
+    output = AccountingDecisionEngine(SyntheticAccountingDecisionPolicy()).decide(
+        firm_id=uuid.uuid4(),
+        client_id=uuid.uuid4(),
+        document_id=uuid.uuid4(),
+        extraction_run_id=uuid.uuid4(),
+        source_sha256="a" * 64,
+        effective_values=_purchase_invoice_values(
+            subtotal="90.12345",
+            tax="10.00",
+            total="100.00",
+        ),
+        prior_snapshots=(),
+    )
+
+    assert AccountingFindingCode.INVALID_MONETARY_VALUE in _finding_codes(output)
+    assert AccountingFindingCode.ARITHMETIC_MISMATCH not in _finding_codes(output)
+    assert output.proposed_journal is None
+
+
 def test_unknown_supplier_creates_new_supplier_and_unknown_mapping_flags() -> None:
     values = _purchase_invoice_values(supplier_name="Synthetic Unknown Supplier Sdn. Bhd.")
 
@@ -186,6 +292,39 @@ def test_supplier_matching_respects_client_scoped_synthetic_directory() -> None:
 
     assert allowed.supplier_match.status == SupplierMatchStatus.CONFIDENT_MATCH
     assert isolated.supplier_match.status == SupplierMatchStatus.NO_MATCH
+
+
+def test_synthetic_policy_supplier_directory_configuration_semantics() -> None:
+    firm_id = uuid.uuid4()
+    client_id = uuid.uuid4()
+    explicit_entry = SupplierDirectoryEntry(
+        supplier_reference="supplier:explicit",
+        supplier_name="Synthetic Explicit Supplier",
+        aliases=(),
+        default_gl_account_reference="expense:explicit",
+        default_category_reference="category:explicit",
+        default_tax_code_reference="tax:review_required",
+        default_cost_centre_reference=None,
+        rule_name="synthetic_explicit_rule",
+        rule_version="0.1.0",
+    )
+
+    default_directory = SyntheticAccountingDecisionPolicy().supplier_directory_for(
+        firm_id=firm_id,
+        client_id=client_id,
+    )
+    empty_directory = SyntheticAccountingDecisionPolicy(
+        supplier_directory=(),
+    ).supplier_directory_for(firm_id=firm_id, client_id=client_id)
+    explicit_directory = SyntheticAccountingDecisionPolicy(
+        supplier_directory=(explicit_entry,),
+    ).supplier_directory_for(firm_id=firm_id, client_id=client_id)
+
+    assert [entry.supplier_reference for entry in default_directory] == [
+        "supplier:synthetic-office-supplies"
+    ]
+    assert empty_directory == ()
+    assert explicit_directory == (explicit_entry,)
 
 
 def test_duplicate_detection_returns_explainable_candidate_without_auto_rejection() -> None:
@@ -270,6 +409,7 @@ def test_unbalanced_journal_is_flagged_independently_from_recommendation_confide
 
 def _purchase_invoice_values(
     *,
+    document_type: str | None = "purchase_invoice",
     supplier_name: str = "Synthetic Office Supplies Sdn. Bhd.",
     invoice_number: str = "SYN-INV-001",
     subtotal: str | None = None,
@@ -277,11 +417,6 @@ def _purchase_invoice_values(
     total: str = "100.00",
 ) -> dict[str, EffectiveExtractionValue]:
     values = {
-        "document.type": _value(
-            "document.type",
-            "synthetic_purchase_invoice",
-            normalized_value="purchase_invoice",
-        ),
         "supplier.name": _value("supplier.name", supplier_name),
         "invoice.number": _value(
             "invoice.number",
@@ -297,6 +432,12 @@ def _purchase_invoice_values(
             value_type="decimal",
         ),
     }
+    if document_type is not None:
+        values["document.type"] = _value(
+            "document.type",
+            f"synthetic_{document_type}",
+            normalized_value=document_type,
+        )
     if subtotal is not None:
         values["invoice.subtotal"] = _value(
             "invoice.subtotal",
@@ -312,6 +453,22 @@ def _purchase_invoice_values(
             value_type="decimal",
         )
     return values
+
+
+def _decide_for_total(total: str):
+    return AccountingDecisionEngine(SyntheticAccountingDecisionPolicy()).decide(
+        firm_id=uuid.uuid4(),
+        client_id=uuid.uuid4(),
+        document_id=uuid.uuid4(),
+        extraction_run_id=uuid.uuid4(),
+        source_sha256="a" * 64,
+        effective_values=_purchase_invoice_values(total=total),
+        prior_snapshots=(),
+    )
+
+
+def _finding_codes(output) -> set[AccountingFindingCode]:
+    return {finding.code for finding in output.findings}
 
 
 def _value(

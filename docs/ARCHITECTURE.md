@@ -228,7 +228,9 @@ The implemented decision pipeline is:
 ```text
 Succeeded downstream-ready extraction run
   -> effective extracted values from original fields plus latest corrections
+  -> supported document-type gate (`purchase_invoice` only in Phase 4)
   -> deterministic required-field and arithmetic validation
+  -> accounting-domain Decimal money validation before journal persistence
   -> synthetic tenant/client-scoped supplier matching
   -> duplicate candidate search inside the same firm/client scope
   -> synthetic configurable recommendations
@@ -238,7 +240,7 @@ Succeeded downstream-ready extraction run
   -> audit events
 ```
 
-Accounting decision runs are immutable attempts. A rerun creates a new run. Phase 4 recommendations and proposed journals are not approvals, exports, postings, payment instructions, or professional accounting/tax advice. Phase 5 remains responsible for human review and approval/rejection workflows.
+Accounting decision runs are immutable attempts. A rerun creates a new run. Unsupported document types and invalid monetary values produce deterministic findings rather than purchase-invoice accounting treatment or persistence failures. Proposed journal balance state is deterministic across totals, `is_balanced`, and `balance_status`. Phase 4 recommendations and proposed journals are not approvals, exports, postings, payment instructions, or professional accounting/tax advice. Phase 5 remains responsible for human review and approval/rejection workflows.
 
 ## Phase 1 Authentication Boundary
 

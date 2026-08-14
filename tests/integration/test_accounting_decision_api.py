@@ -282,6 +282,162 @@ def test_required_field_arithmetic_and_unknown_supplier_findings_are_structured(
     assert response.json()["proposed_journal"] is None
 
 
+def test_unsupported_document_type_is_reviewable_without_purchase_invoice_outputs(
+    settings: Settings,
+    session_factory: sessionmaker[Session],
+    document_storage: LocalDocumentStorage,
+    identity_seed: IdentitySeed,
+) -> None:
+    provider = StaticExtractionProvider(fields=_invoice_fields(document_type="receipt"))
+    with _create_client_with_provider(
+        settings=settings,
+        session_factory=session_factory,
+        document_storage=document_storage,
+        provider=provider,
+    ) as test_client:
+        document_id = _upload_document(test_client, identity_seed)
+        extraction_payload = _start_extraction(
+            test_client,
+            identity_seed,
+            document_id=document_id,
+        ).json()
+        response = _start_decision(
+            test_client,
+            identity_seed,
+            document_id=document_id,
+            extraction_run_id=UUID(extraction_payload["id"]),
+        )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["status"] == "succeeded"
+    assert payload["supplier_match"]["status"] == "no_match"
+    assert payload["recommendations"] == []
+    assert payload["proposed_journal"] is None
+    assert "unsupported_document_type" in {finding["code"] for finding in payload["findings"]}
+
+
+def test_missing_document_type_is_reviewable_without_purchase_invoice_outputs(
+    settings: Settings,
+    session_factory: sessionmaker[Session],
+    document_storage: LocalDocumentStorage,
+    identity_seed: IdentitySeed,
+) -> None:
+    provider = StaticExtractionProvider(fields=_invoice_fields(include_document_type=False))
+    with _create_client_with_provider(
+        settings=settings,
+        session_factory=session_factory,
+        document_storage=document_storage,
+        provider=provider,
+    ) as test_client:
+        document_id = _upload_document(test_client, identity_seed)
+        extraction_payload = _start_extraction(
+            test_client,
+            identity_seed,
+            document_id=document_id,
+        ).json()
+        response = _start_decision(
+            test_client,
+            identity_seed,
+            document_id=document_id,
+            extraction_run_id=UUID(extraction_payload["id"]),
+        )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["supplier_match"]["status"] == "no_match"
+    assert payload["recommendations"] == []
+    assert payload["proposed_journal"] is None
+    findings = {finding["code"]: finding for finding in payload["findings"]}
+    assert findings["missing_required_field"]["field_path"] == "document.type"
+
+
+def test_invalid_accounting_monetary_value_does_not_fail_persistence_or_round(
+    settings: Settings,
+    session_factory: sessionmaker[Session],
+    document_storage: LocalDocumentStorage,
+    db_session: Session,
+    identity_seed: IdentitySeed,
+) -> None:
+    provider = StaticExtractionProvider(fields=_invoice_fields(total="100.12345"))
+    with _create_client_with_provider(
+        settings=settings,
+        session_factory=session_factory,
+        document_storage=document_storage,
+        provider=provider,
+    ) as test_client:
+        document_id = _upload_document(test_client, identity_seed)
+        extraction_payload = _start_extraction(
+            test_client,
+            identity_seed,
+            document_id=document_id,
+        ).json()
+        response = _start_decision(
+            test_client,
+            identity_seed,
+            document_id=document_id,
+            extraction_run_id=UUID(extraction_payload["id"]),
+        )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["status"] == "succeeded"
+    assert payload["failure_code"] is None
+    assert payload["proposed_journal"] is None
+    findings = {finding["code"]: finding for finding in payload["findings"]}
+    assert findings["invalid_monetary_value"]["field_path"] == "invoice.total"
+    assert findings["invalid_monetary_value"]["evidence"]["reason"] == (
+        "unsupported_fractional_precision"
+    )
+
+    events = [
+        event
+        for event in AuditRepository(db_session).list_for_firm(firm_id=identity_seed.firm_a.id)
+        if event.target_id == payload["id"]
+    ]
+    assert {event.event_type for event in events} == {
+        AuditEventType.ACCOUNTING_DECISION_STARTED.value,
+        AuditEventType.ACCOUNTING_DECISION_SUCCEEDED.value,
+    }
+    for event in events:
+        assert "100.12345" not in str(event.metadata_json)
+        assert "persistence_failed" not in str(event.metadata_json)
+
+
+def test_four_decimal_monetary_value_is_persisted_without_rounding(
+    settings: Settings,
+    session_factory: sessionmaker[Session],
+    document_storage: LocalDocumentStorage,
+    identity_seed: IdentitySeed,
+) -> None:
+    provider = StaticExtractionProvider(fields=_invoice_fields(total="100.1234"))
+    with _create_client_with_provider(
+        settings=settings,
+        session_factory=session_factory,
+        document_storage=document_storage,
+        provider=provider,
+    ) as test_client:
+        document_id = _upload_document(test_client, identity_seed)
+        extraction_payload = _start_extraction(
+            test_client,
+            identity_seed,
+            document_id=document_id,
+        ).json()
+        response = _start_decision(
+            test_client,
+            identity_seed,
+            document_id=document_id,
+            extraction_run_id=UUID(extraction_payload["id"]),
+        )
+
+    assert response.status_code == 201
+    journal = response.json()["proposed_journal"]
+    assert journal["total_debits"] == "100.1234"
+    assert journal["total_credits"] == "100.1234"
+    assert {line["debit_amount"] for line in journal["lines"]} >= {"100.1234"}
+    assert {line["credit_amount"] for line in journal["lines"]} >= {"100.1234"}
+
+
 def test_duplicate_candidate_detected_without_auto_rejecting_document(
     client: TestClient,
     identity_seed: IdentitySeed,
@@ -617,6 +773,8 @@ def _direct_extraction_run(
 
 def _invoice_fields(
     *,
+    include_document_type: bool = True,
+    document_type: str = "purchase_invoice",
     include_invoice_number: bool = True,
     supplier_name: str = "Synthetic Office Supplies Sdn. Bhd.",
     invoice_number: str = "SYN-INV-001",
@@ -625,14 +783,6 @@ def _invoice_fields(
     total: str = "100.00",
 ) -> tuple[ProviderExtractedField, ...]:
     fields = [
-        ProviderExtractedField(
-            field_path="document.type",
-            value_type=ExtractionValueType.TEXT.value,
-            raw_value="synthetic_purchase_invoice",
-            normalized_value="purchase_invoice",
-            confidence=Decimal("0.9000"),
-            source_page_number=1,
-        ),
         ProviderExtractedField(
             field_path="supplier.name",
             value_type=ExtractionValueType.TEXT.value,
@@ -665,6 +815,17 @@ def _invoice_fields(
             source_page_number=1,
         ),
     ]
+    if include_document_type:
+        fields.append(
+            ProviderExtractedField(
+                field_path="document.type",
+                value_type=ExtractionValueType.TEXT.value,
+                raw_value=f"synthetic_{document_type}",
+                normalized_value=document_type,
+                confidence=Decimal("0.9000"),
+                source_page_number=1,
+            )
+        )
     if include_invoice_number:
         fields.append(
             ProviderExtractedField(
