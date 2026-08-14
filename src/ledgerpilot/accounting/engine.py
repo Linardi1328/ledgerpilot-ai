@@ -66,9 +66,14 @@ class AccountingDecisionEngine:
 
         monetary_values: dict[str, Decimal] = {}
         monetary_findings: tuple[AccountingFindingDecision, ...] = ()
+        journal_currency: str | None = None
+        currency_finding: AccountingFindingDecision | None = None
         if is_supported_document_type:
             monetary_values, monetary_findings = _accounting_monetary_values(effective_values)
             findings.extend(monetary_findings)
+            journal_currency, currency_finding = _accounting_currency_value(effective_values)
+            if currency_finding is not None:
+                findings.append(currency_finding)
             findings.extend(_arithmetic_findings(effective_values, monetary_values))
 
         supplier_match = SupplierMatchDecision(status=SupplierMatchStatus.NO_MATCH, candidates=())
@@ -145,11 +150,11 @@ class AccountingDecisionEngine:
             )
 
         proposed_journal: ProposedJournalDecision | None = None
-        if is_supported_document_type and not monetary_findings:
+        if is_supported_document_type and not monetary_findings and currency_finding is None:
             proposed_journal = self._proposed_journal(
-                effective_values=effective_values,
                 recommendations=recommendations,
                 total=monetary_values.get("invoice.total"),
+                currency=journal_currency,
             )
         if proposed_journal is not None and not proposed_journal.is_balanced:
             findings.append(
@@ -316,11 +321,10 @@ class AccountingDecisionEngine:
     def _proposed_journal(
         self,
         *,
-        effective_values: dict[str, EffectiveExtractionValue],
         recommendations: tuple[AccountingRecommendationDecision, ...],
         total: Decimal | None,
+        currency: str | None,
     ) -> ProposedJournalDecision | None:
-        currency = _field_text(effective_values, "invoice.currency")
         expense_account = _recommendation_value(
             recommendations,
             AccountingRecommendationType.GL_ACCOUNT,
@@ -510,6 +514,27 @@ def _invalid_monetary_value_finding(field_path: str, reason: str) -> AccountingF
             "maximum_absolute_value": _decimal_to_string(_MAX_ACCOUNTING_MONEY),
         },
     )
+
+
+def _accounting_currency_value(
+    effective_values: dict[str, EffectiveExtractionValue],
+) -> tuple[str | None, AccountingFindingDecision | None]:
+    currency = _field_text(effective_values, "invoice.currency")
+    if currency is None:
+        return None, None
+    if len(currency) != 3 or not currency.isascii() or not currency.isalpha():
+        return None, AccountingFindingDecision(
+            code=AccountingFindingCode.INVALID_CURRENCY,
+            severity=AccountingFindingSeverity.ERROR,
+            field_path="invoice.currency",
+            description="Extracted currency is outside the supported accounting format.",
+            evidence={
+                "field_path": "invoice.currency",
+                "reason": "must_be_three_ascii_letters",
+                "expected_format": "AAA",
+            },
+        )
+    return currency.upper(), None
 
 
 def _arithmetic_findings(

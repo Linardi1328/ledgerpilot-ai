@@ -59,6 +59,8 @@ Mismatches become structured findings. Extracted values are not silently changed
 
 Accounting-domain monetary values are validated before proposed journal generation and persistence. Values must parse as finite Decimal values, fit exactly in the persisted `Numeric(18,4)` domain, and avoid unsupported fractional precision. Journal-line debit or credit amounts must be strictly greater than zero. LedgerPilot does not silently round, coerce, or normalize invalid monetary values to make them fit persistence; invalid values produce `invalid_monetary_value` findings and no proposed journal.
 
+Proposed journal currency is also validated before journal generation and persistence. Phase 4 accepts only structurally valid three-letter ASCII alphabetic currency codes, normalizes valid lowercase values to uppercase for accounting output, and never truncates, guesses, or replaces invalid currency values. Invalid currency produces `invalid_currency` and no proposed journal. Phase 4 does not yet perform authoritative ISO-4217 validation; practitioner validation remains outstanding.
+
 ## Supplier Matching
 
 Supplier matching uses synthetic configurable directory entries. Matching is scoped through the decision request's firm and client context and supports:
@@ -111,6 +113,7 @@ Implemented stable finding codes include:
 - `missing_required_field`
 - `unsupported_document_type`
 - `invalid_monetary_value`
+- `invalid_currency`
 - `arithmetic_mismatch`
 - `possible_duplicate`
 - `new_supplier`

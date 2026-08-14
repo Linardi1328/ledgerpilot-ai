@@ -129,6 +129,84 @@ def test_arithmetic_validation_uses_decimal_precision() -> None:
     assert output.proposed_journal.total_debits == Decimal("0.30")
 
 
+def test_uppercase_currency_is_accepted_for_journal_output() -> None:
+    output = _decide_for_currency("MYR")
+
+    assert AccountingFindingCode.INVALID_CURRENCY not in _finding_codes(output)
+    assert output.proposed_journal is not None
+    assert output.proposed_journal.currency == "MYR"
+
+
+def test_lowercase_currency_is_normalized_without_mutating_effective_value() -> None:
+    values = _purchase_invoice_values(currency="myr")
+
+    output = AccountingDecisionEngine(SyntheticAccountingDecisionPolicy()).decide(
+        firm_id=uuid.uuid4(),
+        client_id=uuid.uuid4(),
+        document_id=uuid.uuid4(),
+        extraction_run_id=uuid.uuid4(),
+        source_sha256="a" * 64,
+        effective_values=values,
+        prior_snapshots=(),
+    )
+
+    assert AccountingFindingCode.INVALID_CURRENCY not in _finding_codes(output)
+    assert output.proposed_journal is not None
+    assert output.proposed_journal.currency == "MYR"
+    assert values["invoice.currency"].value == "myr"
+
+
+def test_usd_currency_is_accepted_for_journal_output() -> None:
+    output = _decide_for_currency("USD")
+
+    assert AccountingFindingCode.INVALID_CURRENCY not in _finding_codes(output)
+    assert output.proposed_journal is not None
+    assert output.proposed_journal.currency == "USD"
+
+
+def test_invalid_long_currency_creates_finding_and_no_journal() -> None:
+    output = _decide_for_currency("MYR_LONG")
+
+    invalid = _invalid_currency_findings(output)
+    assert len(invalid) == 1
+    assert invalid[0].field_path == "invoice.currency"
+    assert invalid[0].evidence == {
+        "field_path": "invoice.currency",
+        "reason": "must_be_three_ascii_letters",
+        "expected_format": "AAA",
+    }
+    assert output.proposed_journal is None
+
+
+def test_invalid_short_currency_creates_finding_and_no_journal() -> None:
+    output = _decide_for_currency("US")
+
+    assert len(_invalid_currency_findings(output)) == 1
+    assert output.proposed_journal is None
+
+
+def test_invalid_alphanumeric_currency_creates_finding_and_no_journal() -> None:
+    output = _decide_for_currency("US12")
+
+    assert len(_invalid_currency_findings(output)) == 1
+    assert output.proposed_journal is None
+
+
+def test_invalid_numeric_currency_creates_finding_and_no_journal() -> None:
+    output = _decide_for_currency("123")
+
+    assert len(_invalid_currency_findings(output)) == 1
+    assert output.proposed_journal is None
+
+
+def test_missing_currency_keeps_required_field_finding_and_no_journal() -> None:
+    output = _decide_for_currency(None)
+
+    assert AccountingFindingCode.MISSING_REQUIRED_FIELD in _finding_codes(output)
+    assert AccountingFindingCode.INVALID_CURRENCY not in _finding_codes(output)
+    assert output.proposed_journal is None
+
+
 def test_arithmetic_mismatch_creates_finding_without_changing_values() -> None:
     values = _purchase_invoice_values(subtotal="90.00", tax="10.01", total="100.00")
 
@@ -410,6 +488,7 @@ def test_unbalanced_journal_is_flagged_independently_from_recommendation_confide
 def _purchase_invoice_values(
     *,
     document_type: str | None = "purchase_invoice",
+    currency: str | None = "MYR",
     supplier_name: str = "Synthetic Office Supplies Sdn. Bhd.",
     invoice_number: str = "SYN-INV-001",
     subtotal: str | None = None,
@@ -424,7 +503,6 @@ def _purchase_invoice_values(
             normalized_value=invoice_number,
         ),
         "invoice.date": _value("invoice.date", "2026-08-11", normalized_value="2026-08-11"),
-        "invoice.currency": _value("invoice.currency", "MYR", normalized_value="MYR"),
         "invoice.total": _value(
             "invoice.total",
             total,
@@ -432,6 +510,12 @@ def _purchase_invoice_values(
             value_type="decimal",
         ),
     }
+    if currency is not None:
+        values["invoice.currency"] = _value(
+            "invoice.currency",
+            currency,
+            normalized_value=currency,
+        )
     if document_type is not None:
         values["document.type"] = _value(
             "document.type",
@@ -467,8 +551,28 @@ def _decide_for_total(total: str):
     )
 
 
+def _decide_for_currency(currency: str | None):
+    return AccountingDecisionEngine(SyntheticAccountingDecisionPolicy()).decide(
+        firm_id=uuid.uuid4(),
+        client_id=uuid.uuid4(),
+        document_id=uuid.uuid4(),
+        extraction_run_id=uuid.uuid4(),
+        source_sha256="a" * 64,
+        effective_values=_purchase_invoice_values(currency=currency),
+        prior_snapshots=(),
+    )
+
+
 def _finding_codes(output) -> set[AccountingFindingCode]:
     return {finding.code for finding in output.findings}
+
+
+def _invalid_currency_findings(output):
+    return [
+        finding
+        for finding in output.findings
+        if finding.code == AccountingFindingCode.INVALID_CURRENCY
+    ]
 
 
 def _value(

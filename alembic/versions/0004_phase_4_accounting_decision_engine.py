@@ -155,9 +155,9 @@ def upgrade() -> None:
         sa.CheckConstraint(
             "code in ("
             "'missing_required_field', 'unsupported_document_type', "
-            "'invalid_monetary_value', 'arithmetic_mismatch', 'possible_duplicate', "
-            "'new_supplier', 'low_extraction_confidence', 'unknown_account_mapping', "
-            "'tax_review_required', 'unbalanced_journal'"
+            "'invalid_monetary_value', 'invalid_currency', 'arithmetic_mismatch', "
+            "'possible_duplicate', 'new_supplier', 'low_extraction_confidence', "
+            "'unknown_account_mapping', 'tax_review_required', 'unbalanced_journal'"
             ")",
             name="ck_accounting_decision_findings_code",
         ),

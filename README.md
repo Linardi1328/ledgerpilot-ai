@@ -122,6 +122,7 @@ The Phase 4 review branch adds an accounting decision engine foundation:
 - Purchase-invoice-specific accounting treatment is gated to `document.type == purchase_invoice`.
 - Deterministic required-field, arithmetic, duplicate, supplier-matching, and journal-balance checks.
 - Accounting-domain monetary validation before journal generation or persistence, with no silent rounding.
+- Structural three-letter currency validation before proposed journal persistence, with lowercase valid codes normalized to uppercase.
 - Provider/rule-independent recommendation records for GL account, tax code, cost centre, and category.
 - Proposed journal and journal-line records for future human review.
 - Structured findings and flags with stable machine-readable codes.
@@ -129,7 +130,7 @@ The Phase 4 review branch adds an accounting decision engine foundation:
 - Accountant/Senior Reviewer decision execution permission; Firm Admin, Auditor, and Client Submitter cannot execute decision runs.
 - PostgreSQL migration and constraint coverage for Phase 4 ownership and accounting invariants.
 
-Phase 4 recommendations are not approvals and are not professional accounting or tax advice. Unsupported document types and invalid monetary values produce review findings rather than type-specific journals. The current accounting policy and tax-code behavior use synthetic configurable rules only and require future practitioner validation.
+Phase 4 recommendations are not approvals and are not professional accounting or tax advice. Unsupported document types, invalid monetary values, and invalid currencies produce review findings rather than type-specific journals. The current accounting policy and tax-code behavior use synthetic configurable rules only and require future practitioner validation.
 
 ## Planned Capabilities
 

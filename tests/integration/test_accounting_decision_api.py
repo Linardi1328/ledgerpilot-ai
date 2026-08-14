@@ -24,7 +24,7 @@ from ledgerpilot.extraction.types import (
     ProviderExtractedField,
 )
 from ledgerpilot.identity.roles import Role
-from ledgerpilot.persistence.models.accounting import AccountingDecisionRun
+from ledgerpilot.persistence.models.accounting import AccountingDecisionRun, ProposedJournal
 from ledgerpilot.persistence.models.documents import DocumentFile
 from ledgerpilot.persistence.models.extraction import ExtractedField, ExtractionRun
 from ledgerpilot.persistence.repositories.audit import AuditRepository
@@ -438,6 +438,112 @@ def test_four_decimal_monetary_value_is_persisted_without_rounding(
     assert {line["credit_amount"] for line in journal["lines"]} >= {"100.1234"}
 
 
+def test_malformed_currency_is_reviewable_without_persistence_failure(
+    settings: Settings,
+    session_factory: sessionmaker[Session],
+    document_storage: LocalDocumentStorage,
+    db_session: Session,
+    identity_seed: IdentitySeed,
+) -> None:
+    provider = StaticExtractionProvider(fields=_invoice_fields(currency="MYR_LONG"))
+    with _create_client_with_provider(
+        settings=settings,
+        session_factory=session_factory,
+        document_storage=document_storage,
+        provider=provider,
+    ) as test_client:
+        document_id = _upload_document(test_client, identity_seed)
+        extraction_payload = _start_extraction(
+            test_client,
+            identity_seed,
+            document_id=document_id,
+        ).json()
+        extraction_run_id = UUID(extraction_payload["id"])
+        response = _start_decision(
+            test_client,
+            identity_seed,
+            document_id=document_id,
+            extraction_run_id=extraction_run_id,
+        )
+        retrieved = test_client.get(
+            f"{_decision_url(identity_seed.client_a.id, document_id, extraction_run_id)}/"
+            f"{response.json()['id']}",
+            headers=_auth_headers(identity_seed),
+        )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["status"] == "succeeded"
+    assert payload["failure_code"] is None
+    assert payload["proposed_journal"] is None
+    findings = {finding["code"]: finding for finding in payload["findings"]}
+    assert findings["invalid_currency"]["field_path"] == "invoice.currency"
+    assert findings["invalid_currency"]["evidence"] == {
+        "field_path": "invoice.currency",
+        "reason": "must_be_three_ascii_letters",
+        "expected_format": "AAA",
+    }
+    assert retrieved.status_code == 200
+    assert retrieved.json()["id"] == payload["id"]
+
+    events = [
+        event
+        for event in AuditRepository(db_session).list_for_firm(firm_id=identity_seed.firm_a.id)
+        if event.target_id == payload["id"]
+    ]
+    assert {event.event_type for event in events} == {
+        AuditEventType.ACCOUNTING_DECISION_STARTED.value,
+        AuditEventType.ACCOUNTING_DECISION_SUCCEEDED.value,
+    }
+    for event in events:
+        assert "MYR_LONG" not in str(event.metadata_json)
+        assert "persistence_failed" not in str(event.metadata_json)
+
+
+def test_lowercase_valid_currency_is_persisted_uppercase_without_mutating_extraction(
+    settings: Settings,
+    session_factory: sessionmaker[Session],
+    document_storage: LocalDocumentStorage,
+    db_session: Session,
+    identity_seed: IdentitySeed,
+) -> None:
+    provider = StaticExtractionProvider(fields=_invoice_fields(currency="myr"))
+    with _create_client_with_provider(
+        settings=settings,
+        session_factory=session_factory,
+        document_storage=document_storage,
+        provider=provider,
+    ) as test_client:
+        document_id = _upload_document(test_client, identity_seed)
+        extraction_payload = _start_extraction(
+            test_client,
+            identity_seed,
+            document_id=document_id,
+        ).json()
+        response = _start_decision(
+            test_client,
+            identity_seed,
+            document_id=document_id,
+            extraction_run_id=UUID(extraction_payload["id"]),
+        )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["proposed_journal"]["currency"] == "MYR"
+    journal = db_session.scalars(
+        select(ProposedJournal).where(ProposedJournal.decision_run_id == UUID(payload["id"]))
+    ).one()
+    assert journal.currency == "MYR"
+    stored_currency_field = db_session.scalars(
+        select(ExtractedField).where(
+            ExtractedField.extraction_run_id == UUID(extraction_payload["id"]),
+            ExtractedField.field_path == "invoice.currency",
+        )
+    ).one()
+    assert stored_currency_field.raw_value == "myr"
+    assert stored_currency_field.normalized_value == "myr"
+
+
 def test_duplicate_candidate_detected_without_auto_rejecting_document(
     client: TestClient,
     identity_seed: IdentitySeed,
@@ -775,6 +881,7 @@ def _invoice_fields(
     *,
     include_document_type: bool = True,
     document_type: str = "purchase_invoice",
+    currency: str | None = "MYR",
     include_invoice_number: bool = True,
     supplier_name: str = "Synthetic Office Supplies Sdn. Bhd.",
     invoice_number: str = "SYN-INV-001",
@@ -799,14 +906,6 @@ def _invoice_fields(
             source_page_number=1,
         ),
         ProviderExtractedField(
-            field_path="invoice.currency",
-            value_type=ExtractionValueType.TEXT.value,
-            raw_value="MYR",
-            normalized_value="MYR",
-            confidence=Decimal("0.9000"),
-            source_page_number=1,
-        ),
-        ProviderExtractedField(
             field_path="invoice.total",
             value_type=ExtractionValueType.DECIMAL.value,
             raw_value=total,
@@ -815,6 +914,17 @@ def _invoice_fields(
             source_page_number=1,
         ),
     ]
+    if currency is not None:
+        fields.append(
+            ProviderExtractedField(
+                field_path="invoice.currency",
+                value_type=ExtractionValueType.TEXT.value,
+                raw_value=currency,
+                normalized_value=currency,
+                confidence=Decimal("0.9000"),
+                source_page_number=1,
+            )
+        )
     if include_document_type:
         fields.append(
             ProviderExtractedField(

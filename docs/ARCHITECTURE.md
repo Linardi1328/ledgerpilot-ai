@@ -231,6 +231,7 @@ Succeeded downstream-ready extraction run
   -> supported document-type gate (`purchase_invoice` only in Phase 4)
   -> deterministic required-field and arithmetic validation
   -> accounting-domain Decimal money validation before journal persistence
+  -> structural three-letter currency validation before journal persistence
   -> synthetic tenant/client-scoped supplier matching
   -> duplicate candidate search inside the same firm/client scope
   -> synthetic configurable recommendations
@@ -240,7 +241,7 @@ Succeeded downstream-ready extraction run
   -> audit events
 ```
 
-Accounting decision runs are immutable attempts. A rerun creates a new run. Unsupported document types and invalid monetary values produce deterministic findings rather than purchase-invoice accounting treatment or persistence failures. Proposed journal balance state is deterministic across totals, `is_balanced`, and `balance_status`. Phase 4 recommendations and proposed journals are not approvals, exports, postings, payment instructions, or professional accounting/tax advice. Phase 5 remains responsible for human review and approval/rejection workflows.
+Accounting decision runs are immutable attempts. A rerun creates a new run. Unsupported document types, invalid monetary values, and invalid currency values produce deterministic findings rather than purchase-invoice accounting treatment or persistence failures. Valid lowercase currency values are normalized to uppercase for accounting output, but Phase 4 does not perform authoritative ISO-4217 validation. Proposed journal balance state is deterministic across totals, `is_balanced`, and `balance_status`. Phase 4 recommendations and proposed journals are not approvals, exports, postings, payment instructions, or professional accounting/tax advice. Phase 5 remains responsible for human review and approval/rejection workflows.
 
 ## Phase 1 Authentication Boundary
 
