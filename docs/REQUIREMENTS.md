@@ -1,6 +1,6 @@
 # Functional Requirements
 
-Functional requirements are stable identifiers for product capability. Phase 3 implements infrastructure, secure document intake, and structured extraction foundations only; accounting workflow requirements remain future work.
+Functional requirements are stable identifiers for product capability. Phase 4 implements infrastructure, secure document intake, structured extraction, and accounting decision foundations. Human review, approval, export, SQL Account, MyInvois, and production accounting/tax policy remain future work.
 
 | ID | Title | Actor | Priority | Scope | Preconditions | Expected result | Controls | Acceptance evidence | Description |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |

@@ -132,7 +132,7 @@ Dependencies:
 
 ## 5. Phase 3: OCR and Extraction
 
-Status: In progress on `review/phase-03-ocr-extraction`; not complete until independently approved and merged.
+Status: Complete and merged into `main` after CI, independent review, and owner testing.
 
 Objective: extract structured fields from synthetic documents through provider-independent boundaries.
 
@@ -154,6 +154,7 @@ Exit criteria:
 - Corrections preserve original provider values and create attributable history.
 - PostgreSQL migration and ownership constraint tests pass.
 - Independent review approves the Phase 3 pull request.
+- Owner testing verifies structured extraction, correction history, provider lineage, RBAC, invalid-file rejection, cross-client isolation, and regression.
 
 Risks:
 
@@ -167,6 +168,8 @@ Dependencies:
 
 ## 6. Phase 4: Accounting Decision Engine
 
+Status: In development on `review/phase-04-accounting-decision-engine`.
+
 Objective: recommend accounting treatment using deterministic rules and reviewable provider-independent recommendations.
 
 Deliverables:
@@ -178,11 +181,17 @@ Deliverables:
 - Configurable accounting rules.
 - GL, tax-code, cost-centre, and category recommendation interfaces.
 - Balanced journal suggestions.
+- Versioned accounting decision runs.
+- Structured decision/risk findings.
+- Safe accounting decision audit events.
 
 Exit criteria:
 
 - Journals cannot be approved unless balanced.
 - Recommendations include explanation, confidence, and rule/model lineage.
+- Only succeeded downstream-ready extraction runs are accepted.
+- Effective corrected extraction values are used without mutating original provider observations.
+- PostgreSQL ownership and accounting-invariant constraints are covered by tests.
 
 Risks:
 
@@ -193,7 +202,7 @@ Risks:
 Dependencies:
 
 - Phase 3 extraction and correction foundations.
-- Practitioner validation.
+- Practitioner validation for production accounting policy, tax behavior, mapping rules, and thresholds.
 
 ## 7. Phase 5: Human Review
 

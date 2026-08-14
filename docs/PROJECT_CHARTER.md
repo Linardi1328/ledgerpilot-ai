@@ -16,9 +16,9 @@ AI output is untrusted input until validated. Deterministic accounting controls 
 
 ## Current Phase
 
-**Current status: Phase 3 — OCR & Structured Extraction (review branch)**
+**Current status: Phase 4 — Accounting Decision Engine Foundation (review branch)**
 
-Phase 0 established the documentation-first foundation. Phase 1 added core infrastructure, Phase 2 added secure document intake, and Phase 3 adds structured extraction foundations. The project still does not build production accounting features.
+Phase 0 established the documentation-first foundation. Phase 1 added core infrastructure, Phase 2 added secure document intake, Phase 3 added structured extraction foundations, and Phase 4 adds a synthetic accounting decision engine foundation. The project still does not build production accounting features, approvals, exports, or professional accounting/tax advice.
 
 ## Target Users
 

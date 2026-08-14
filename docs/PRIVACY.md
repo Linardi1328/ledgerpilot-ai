@@ -1,6 +1,6 @@
 # Privacy Requirements
 
-This document defines privacy requirements and implementation boundaries. Phase 3 implements tenant/client-scoped document metadata and structured extraction for development/testing, but production privacy controls still require independent review.
+This document defines privacy requirements and implementation boundaries. Phase 4 implements tenant/client-scoped document metadata, structured extraction, and accounting decision recommendations for development/testing, but production privacy controls still require independent review.
 
 ## Data Minimisation
 
@@ -33,6 +33,8 @@ Protect confidential accounting information, extracted field values, correction 
 ## Sensitive-Log Prevention
 
 Logs should not contain full invoices, extracted values, corrected values, raw OCR text, provider payloads, credentials, tokens, bank details, taxpayer identifiers, or unnecessary personal information. Error messages should be useful without leaking sensitive data.
+
+Phase 4 accounting decision audit events should contain only safe identifiers, engine lineage, counts, status, failure code, and balance state. They must not copy raw invoice values, corrected values, supplier bank details, full recommendation payloads, document content, taxpayer identifiers, or secrets into logs or audit metadata.
 
 ## Synthetic Development Data
 

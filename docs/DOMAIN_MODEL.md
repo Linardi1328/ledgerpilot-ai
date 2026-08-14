@@ -1,6 +1,6 @@
 # Domain Model
 
-This model combines implemented infrastructure entities with future conceptual accounting entities. Phase 1 implemented identity, tenant/client ownership, and audit primitives. Phase 2 implemented document and document-file metadata. Phase 3 implements extraction runs, extracted fields, and extracted-field corrections. Invoice, supplier/customer matching, recommendations, journals, review tasks, exports, and MyInvois records remain future concepts.
+This model combines implemented infrastructure entities with future conceptual accounting entities. Phase 1 implemented identity, tenant/client ownership, and audit primitives. Phase 2 implemented document and document-file metadata. Phase 3 implemented extraction runs, extracted fields, and extracted-field corrections. Phase 4 implements accounting decision runs, validation findings, supplier-match candidates, duplicate candidates, recommendations, proposed journals, and proposed journal lines. Approved invoices, review tasks, exports, and MyInvois records remain future concepts.
 
 ## Domain Diagram
 
@@ -16,6 +16,13 @@ erDiagram
     Document ||--o{ ExtractionRun : has
     ExtractionRun ||--o{ ExtractedField : produces
     ExtractedField ||--o{ ExtractionFieldCorrection : corrected_by
+    ExtractionRun ||--o{ AccountingDecisionRun : feeds
+    AccountingDecisionRun ||--o{ AccountingDecisionFinding : records
+    AccountingDecisionRun ||--o{ SupplierMatchCandidate : suggests
+    AccountingDecisionRun ||--o{ DuplicateCandidate : flags
+    AccountingDecisionRun ||--o{ Recommendation : produces
+    AccountingDecisionRun ||--o{ ProposedJournal : suggests
+    ProposedJournal ||--o{ ProposedJournalLine : contains
     Supplier ||--o{ Invoice : issues
     Customer ||--o{ Invoice : receives
     Invoice ||--o{ InvoiceLine : contains
@@ -53,6 +60,8 @@ erDiagram
 | ExtractedField | Implemented extracted value for a provider-independent field path. | Belongs to extraction run and retains document/client/firm scope. | Original extraction immutable; effective values use corrections. | Field source, confidence, and corrections are traceable. |
 | FieldConfidence | Implemented as optional confidence on extracted fields. | Belongs to extracted field. | Immutable per extraction run. | Supports uncertainty review and model monitoring; not proof of correctness. |
 | ExtractionFieldCorrection | Implemented append-only correction to an extracted field. | Belongs to field/run/document/client/firm and corrected-by membership/user. | Revisioned and append-only through application interfaces. | Correction reason, actor, timestamp, and revision are auditable. |
+| AccountingDecisionRun | Implemented Phase 4 decision attempt. | Belongs to firm/client/document/extraction run and contains findings, matches, duplicate candidates, recommendations, and proposed journals. | Pending/running/succeeded/failed; terminal runs are not reset. Reruns create new attempts. | Start, success, and failure are audited with safe metadata. |
+| AccountingDecisionFinding | Implemented Phase 4 deterministic flag or finding. | Belongs to an accounting decision run with full firm/client/document/extraction scope. | Immutable per run; rerun creates new findings. | Codes, severity, safe description, and safe evidence support review. |
 | Supplier | Counterparty supplying goods/services. | Owned by client entity; linked to identifiers, invoices, rules. | Mutable through controlled changes; bank changes are high risk and out of MVP. | Supplier changes and matches are auditable. |
 | Customer | Counterparty receiving goods/services. | Owned by client entity; linked to identifiers and invoices. | Mutable through controlled changes. | Customer changes and matches are auditable. |
 | BusinessIdentifier | Registration, tax, or other identifier. | Belongs to supplier, customer, firm, or client. | Mutable with history; validated status may change. | Identifier validation and changes are auditable. |
@@ -68,12 +77,16 @@ erDiagram
 | Project | Optional project/job dimension. | Owned by client entity; referenced by rules or journal lines. | Configurable lifecycle. | Changes are auditable where used in postings. |
 | AccountingRule | Configurable rule for coding/routing. | Owned by firm/client; produces recommendations. | Versioned; changes do not rewrite prior recommendations. | Rule versions are part of recommendation lineage. |
 | SupplierSpecificRule | Rule scoped to supplier. | Owned by client and supplier. | Versioned and reviewed. | Supplier-specific coding changes are auditable. |
-| Recommendation | Suggested accounting treatment. | Linked to invoice, rules, models, confidence, risk, journal. | Immutable once issued; superseded by new recommendation. | Explanation, confidence, versions, and reviewer action retained. |
+| SupplierMatchCandidate | Implemented Phase 4 supplier match result. | Linked to an accounting decision run and scoped to firm/client/document/extraction. | Immutable per run; future supplier master-data changes do not rewrite old candidates. | Matching evidence, confidence, and matcher version are retained. |
+| DuplicateCandidate | Implemented Phase 4 possible duplicate warning. | Linked to current decision run and prior same-scope candidate document/extraction/decision run. | Immutable warning; never auto-deletes, merges, approves, or rejects records. | Evidence signals and detector version are retained. |
+| Recommendation | Implemented Phase 4 suggested accounting treatment. | Linked to accounting decision run, rules, confidence, evidence, and proposed journal context. | Immutable once issued; reruns produce new recommendations. | Explanation, confidence, rule/model versions, and timestamps are retained. |
 | RecommendationExplanation | Human-readable reason. | Belongs to recommendation. | Immutable with recommendation. | Supports review, training, and dispute analysis. |
 | RecommendationConfidence | Confidence or uncertainty indicator. | Belongs to recommendation. | Immutable with recommendation. | Must not be treated as proof of correctness. |
 | RiskIndicator | Flag such as duplicate, high value, unusual supplier, low confidence. | Linked to document, invoice, recommendation, or review task. | Immutable per assessment; new assessment can supersede. | Risk routing and override decisions are auditable. |
-| Journal | Draft or approved accounting entry. | Linked to invoice, recommendation, approval, export. | Draft mutable; approved immutable except correction/reversal/supersession. | Journal approval and correction are core audit events. |
-| JournalLine | Debit or credit line. | Belongs to journal; references GL account, tax code, dimensions. | Mutable before approval; immutable after approval. | Amount/account changes require traceability. |
+| ProposedJournal | Implemented Phase 4 journal suggestion. | Linked to accounting decision run and source extraction/document. | Immutable proposed output for future review; not approved or exportable in Phase 4. | Decimal totals and balance state are retained. |
+| ProposedJournalLine | Implemented Phase 4 proposed debit or credit line. | Belongs to proposed journal; references account, optional tax code, and optional cost centre. | Immutable per decision run. | Amount/account lineage supports future review. |
+| Journal | Future approved accounting entry. | Linked to invoice, recommendation, approval, export. | Draft/review states arrive in Phase 5; approved immutable except correction/reversal/supersession. | Journal approval and correction are core audit events. |
+| JournalLine | Future approved debit or credit line. | Belongs to journal; references GL account, tax code, dimensions. | Mutable before approval; immutable after approval. | Amount/account changes require traceability. |
 | ReviewTask | Work item for accountant/senior reviewer. | Linked to document/invoice/recommendation/journal. | State-driven assignment and completion. | Assignment, escalation, and outcome are auditable. |
 | Approval | Decision accepting work. | Linked to review task and approved journal. | Immutable decision record. | Actor, time, authority, and scope required. |
 | Rejection | Decision rejecting work. | Linked to review task/document/invoice. | Immutable decision record. | Reason and actor required. |
@@ -92,7 +105,8 @@ erDiagram
 
 - Which entities must be firm-level templates versus client-level configuration?
 - What is the minimum required audit-event schema?
-- How should document versions relate to corrected structured data?
+- How should document versions relate to corrected structured data and Phase 4 decision reruns?
 - Which supplier/customer identifiers are required in Malaysia for MVP and future MyInvois?
+- Which synthetic Phase 4 rules should become configurable database-backed policy after practitioner validation?
 
 **Status: Provisional — requires practitioner and technical validation.**

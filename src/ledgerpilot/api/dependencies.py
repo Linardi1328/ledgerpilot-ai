@@ -6,6 +6,7 @@ from typing import Annotated, cast
 from fastapi import Depends, Request
 from sqlalchemy.orm import Session, sessionmaker
 
+from ledgerpilot.accounting.rules import AccountingDecisionPolicy
 from ledgerpilot.api.errors import ApiError
 from ledgerpilot.core.config import Settings
 from ledgerpilot.extraction.protocol import ExtractionProvider
@@ -52,6 +53,10 @@ def get_malware_scanner(request: Request) -> MalwareScanner:
 
 def get_extraction_provider(request: Request) -> ExtractionProvider:
     return cast(ExtractionProvider, request.app.state.extraction_provider)
+
+
+def get_accounting_decision_policy(request: Request) -> AccountingDecisionPolicy:
+    return cast(AccountingDecisionPolicy, request.app.state.accounting_decision_policy)
 
 
 def require_permission(permission: Permission) -> Callable[[Principal], Principal]:

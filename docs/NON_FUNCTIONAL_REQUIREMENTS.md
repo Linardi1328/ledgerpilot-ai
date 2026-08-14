@@ -1,6 +1,6 @@
 # Non-Functional Requirements
 
-Non-functional requirements define quality attributes and constraints. Phase 3 implements selected infrastructure, intake, and extraction controls while production hardening remains future work.
+Non-functional requirements define quality attributes and constraints. Phase 4 implements selected infrastructure, intake, extraction, and accounting decision controls while production hardening remains future work.
 
 | ID | Area | Requirement | Priority | Evidence expected in future phases | Status |
 | --- | --- | --- | --- | --- | --- |

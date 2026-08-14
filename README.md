@@ -1,6 +1,6 @@
 # LedgerPilot AI
 
-**Current status: Phase 3 — OCR & Structured Extraction (review branch)**
+**Current status: Phase 4 — Accounting Decision Engine Foundation (review branch)**
 
 LedgerPilot AI is a planned accounting automation assistant for reducing repetitive bookkeeping and accounting work while preserving deterministic accounting controls, traceability, and human review.
 
@@ -86,7 +86,7 @@ See [Role and Permission Model](docs/ROLE_PERMISSION_MODEL.md).
 
 ## Implemented Through Phase 3
 
-The current review branch includes the Phase 1 infrastructure, Phase 2 secure document-intake boundary, and Phase 3 structured-extraction foundation:
+`main` includes the Phase 1 infrastructure, Phase 2 secure document-intake boundary, and Phase 3 structured-extraction foundation:
 
 - FastAPI application factory and `/api/v1` routing.
 - Typed Pydantic settings with guarded environment/auth/storage/scanner configuration.
@@ -112,16 +112,28 @@ The current review branch includes the Phase 1 infrastructure, Phase 2 secure do
 
 Phase 3 does not implement production OCR, AI providers, accounting recommendations, journals, review queues, bank reconciliation, SQL Account, MyInvois, frontend work, production authentication, production object storage, production malware scanning, or production deployment.
 
+## Phase 4 Review Branch
+
+The Phase 4 review branch adds an accounting decision engine foundation:
+
+- Immutable, versioned accounting decision runs scoped to firm, client, document, and extraction run.
+- Eligibility enforcement so only succeeded downstream-ready extraction runs can enter accounting decisions.
+- Effective extracted-value consumption, where latest human corrections override provider values without mutating original provider observations.
+- Deterministic required-field, arithmetic, duplicate, supplier-matching, and journal-balance checks.
+- Provider/rule-independent recommendation records for GL account, tax code, cost centre, and category.
+- Proposed journal and journal-line records for future human review.
+- Structured findings and flags with stable machine-readable codes.
+- Safe accounting decision audit events.
+- Accountant/Senior Reviewer decision execution permission; Firm Admin, Auditor, and Client Submitter cannot execute decision runs.
+- PostgreSQL migration and constraint coverage for Phase 4 ownership and accounting invariants.
+
+Phase 4 recommendations are not approvals and are not professional accounting or tax advice. The current accounting policy and tax-code behavior use synthetic configurable rules only and require future practitioner validation.
+
 ## Planned Capabilities
 
 - Production-grade document storage, malware scanning, retention, and secure retrieval.
 - Production OCR provider integration.
-- Required-field and arithmetic validation.
-- Duplicate-document detection.
-- Supplier/customer matching.
-- Configurable accounting recommendations.
-- Balanced journal suggestions.
-- Confidence and risk indicators.
+- Practitioner-validated accounting and tax configuration.
 - Review routing, escalation, approval, correction, rejection, and information requests.
 - Audit history.
 - Future accounting-platform export.
@@ -216,6 +228,18 @@ The development extraction provider is deterministic synthetic test infrastructu
 
 Extraction output stops at structured fields. It does not perform invoice arithmetic validation, supplier matching, accounting coding, tax recommendation, journal generation, approval routing, SQL Account export, or MyInvois submission. See [Extraction](docs/EXTRACTION.md).
 
+## Accounting Decisions
+
+Phase 4 can create reviewable accounting decision runs from a succeeded downstream-ready extraction run.
+
+The implemented endpoints are:
+
+- `POST /api/v1/clients/{client_id}/documents/{document_id}/extractions/{extraction_run_id}/accounting-decisions`
+- `GET /api/v1/clients/{client_id}/documents/{document_id}/extractions/{extraction_run_id}/accounting-decisions`
+- `GET /api/v1/clients/{client_id}/documents/{document_id}/extractions/{extraction_run_id}/accounting-decisions/{decision_run_id}`
+
+Decision responses include validation findings, supplier-match candidates, duplicate candidates, recommendations, explanations, evidence, rule lineage, proposed journals, and journal-balance state. They do not include approval, rejection, review routing, export, payments, SQL Account, MyInvois, or supplier bank-detail changes. See [Accounting Decision Engine](docs/ACCOUNTING_DECISION_ENGINE.md).
+
 ## Proposed Technology
 
 Backend direction:
@@ -255,6 +279,7 @@ ledgerpilot-ai/
 ├── docs/
 │   ├── adr/
 │   ├── ACCEPTANCE_CRITERIA.md
+│   ├── ACCOUNTING_DECISION_ENGINE.md
 │   ├── ACCOUNTING_PRINCIPLES.md
 │   ├── ARCHITECTURE.md
 │   ├── DEVELOPMENT.md
@@ -408,6 +433,7 @@ See [Roadmap](docs/ROADMAP.md).
 - [Requirements](docs/REQUIREMENTS.md)
 - [Non-Functional Requirements](docs/NON_FUNCTIONAL_REQUIREMENTS.md)
 - [Acceptance Criteria](docs/ACCEPTANCE_CRITERIA.md)
+- [Accounting Decision Engine](docs/ACCOUNTING_DECISION_ENGINE.md)
 - [Domain Model](docs/DOMAIN_MODEL.md)
 - [Workflows](docs/WORKFLOWS.md)
 - [Role and Permission Model](docs/ROLE_PERMISSION_MODEL.md)
@@ -425,7 +451,7 @@ See [Roadmap](docs/ROADMAP.md).
 
 ## Production-Readiness Disclaimer
 
-LedgerPilot AI is not production-ready. Phase 3 establishes backend infrastructure, local-development secure document intake, and a deterministic structured-extraction foundation for review only. Production authentication, production deployment, production object storage, production malware scanning, production OCR, AI recommendation engine, accounting automation, SQL Account integration, and MyInvois integration are not implemented.
+LedgerPilot AI is not production-ready. Phase 4 establishes backend infrastructure, local-development secure document intake, deterministic structured extraction, and a synthetic accounting decision foundation for review only. Production authentication, production deployment, production object storage, production malware scanning, production OCR, production accounting/tax policy, approvals, review workflows, SQL Account integration, and MyInvois integration are not implemented.
 
 ## Accounting, Tax, and Legal Disclaimer
 

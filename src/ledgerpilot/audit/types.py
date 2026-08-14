@@ -15,3 +15,6 @@ class AuditEventType(StrEnum):
     EXTRACTION_SUCCEEDED = "extraction_succeeded"
     EXTRACTION_FAILED = "extraction_failed"
     EXTRACTION_CORRECTION_RECORDED = "extraction_correction_recorded"
+    ACCOUNTING_DECISION_STARTED = "accounting_decision_started"
+    ACCOUNTING_DECISION_SUCCEEDED = "accounting_decision_succeeded"
+    ACCOUNTING_DECISION_FAILED = "accounting_decision_failed"

@@ -84,6 +84,7 @@ Legend:
 | View documents | Limited | Yes, assigned/authorised clients | Yes, assigned/authorised clients | Limited, own submitted/authorised documents | Yes, authorised scope only |
 | Run extraction | No | Yes | Yes | No | No |
 | Correct extracted information | No | Yes, before approval | Yes, before approval or during correction workflow | No | No |
+| Run accounting decision | No | Yes | Yes | No | No |
 | Review recommendations | Limited | Yes | Yes | No | Yes |
 | Approve ordinary transaction | No by default | Limited | Yes | No | No |
 | Approve high-risk transaction | No by default | No | Limited | No | No |

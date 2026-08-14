@@ -1,6 +1,6 @@
 # Workflows and State Models
 
-This document describes implemented and planned workflows and states. Phase 3 implements secure document intake plus structured extraction. Accounting recommendation, review, export, SQL Account, and MyInvois processing remain future functionality.
+This document describes implemented and planned workflows and states. Phase 4 implements secure document intake, structured extraction, and accounting decision recommendations. Human review, approval, export, SQL Account, and MyInvois processing remain future functionality.
 
 ## Implemented Phase 2 Intake Flow
 
@@ -49,10 +49,34 @@ flowchart TD
     O -->|Yes| P[Append correction revision]
     O -->|No| Q[Effective structured extraction]
     P --> Q
-    Q --> R[Phase 4 accounting validation - future]
+    Q --> R[Phase 4 accounting decision run]
 ```
 
 The implemented extraction flow persists extraction runs, validated extracted fields, confidence, source provenance, and append-only correction history. It does not perform invoice arithmetic validation, supplier matching, accounting coding, journal generation, approvals, SQL Account export, or MyInvois submission.
+
+## Implemented Phase 4 Accounting Decision Flow
+
+```mermaid
+flowchart TD
+    A[Succeeded downstream-ready extraction run] --> B[Authorised accounting decision request]
+    B --> C{Client scope and RUN_ACCOUNTING_DECISION?}
+    C -->|No| D[Access denied]
+    C -->|Yes| E[Build effective values from extraction fields and latest corrections]
+    E --> F[Required-field validation]
+    F --> G[Decimal arithmetic validation where sufficient data exists]
+    G --> H[Synthetic supplier matching]
+    H --> I[Same-scope duplicate candidate detection]
+    I --> J[Synthetic configurable recommendations]
+    J --> K[Proposed journal generation]
+    K --> L{Debits equal credits?}
+    L -->|Yes| M[Balanced proposed journal]
+    L -->|No| N[Unbalanced journal finding]
+    M --> O[AccountingDecisionRun succeeded]
+    N --> O
+    O --> P[Safe audit event]
+```
+
+Phase 4 creates recommendations only. It does not approve, reject, route, export, post, pay, alter supplier bank details, or provide professional accounting/tax advice.
 
 ## Overall Document Processing Flow
 
@@ -125,7 +149,16 @@ flowchart LR
 - Succeeded
 - Failed
 
-Only succeeded extraction runs are downstream-ready for future Phase 4 validation. Pending, running, and failed runs are not downstream-ready.
+Only succeeded extraction runs are downstream-ready for Phase 4 validation. Pending, running, and failed runs are not downstream-ready.
+
+## Implemented Phase 4 Accounting Decision Run States
+
+- Pending
+- Running
+- Succeeded
+- Failed
+
+Terminal accounting decision runs are not reset. A rerun creates a new decision run.
 
 ## Future Document/Review Preparation States
 
@@ -204,7 +237,10 @@ stateDiagram-v2
 | Extraction Running -> Failed | System | Run extraction | Provider fails or output validation fails | Safe failure code retained; no successful fields from invalid output | Required | Retry creates a new run |
 | Extraction Running -> Succeeded | System | Run extraction | Provider output validates | Field paths, confidence, source provenance, provider lineage retained | Required | New run supersedes by chronology only |
 | Extracted Field -> Corrected Effective Value | Accountant or senior reviewer | Correct extracted information | Field belongs to authorised firm/client/document/run | Reason required; original field remains unchanged | Required | Yes, another correction revision |
-| Extracted -> Ready for Review | System | Review routing | Required and arithmetic validation pass | Duplicate/supplier/risk checks recorded | Required | Yes, reviewer may request info |
+| Extraction Run -> Accounting Decision Pending | Accountant or senior reviewer | Run accounting decision | Extraction run is succeeded and downstream-ready; client scope authorised | Effective values use latest corrections; original provider values remain unchanged | Required | Yes, rerun creates a new decision run |
+| Accounting Decision Running -> Failed | System | Run accounting decision | Engine or persistence failure occurs | Safe failure code retained; no raw invoice payload in audit metadata | Required | Yes, retry creates a new decision run |
+| Accounting Decision Running -> Succeeded | System | Run accounting decision | Decision package is persisted | Findings, supplier matches, duplicates, recommendations, proposed journal, and balance state retained | Required | Yes, rerun creates a new decision run |
+| Accounting Decision -> Future Ready for Review | System | Review routing | Phase 5 only; not implemented in Phase 4 | Phase 4 findings and recommendations are available as input | Required in future | Yes, reviewer may request info |
 | Any reviewable -> Information Required | Accountant or senior reviewer | Request information | Missing or unclear information exists | Comment required | Required | Yes, submitter response returns to review |
 | Ready for Review -> Duplicate Suspected | System or reviewer | Review recommendations | Duplicate indicators exceed threshold | Explanation retained | Required | Yes, reviewer resolves |
 | Ready for Review -> Accountant Review Required | System | Review routing | Ordinary risk profile | Routing rules applied | Required | Yes, escalation possible |

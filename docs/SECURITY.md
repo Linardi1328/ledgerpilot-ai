@@ -1,6 +1,6 @@
 # Security Requirements
 
-This document defines security requirements and implementation boundaries. Phase 3 implements local-development secure document intake and structured extraction only; most production security controls remain planned and must not be claimed as production-ready.
+This document defines security requirements and implementation boundaries. Phase 4 implements local-development secure document intake, structured extraction, and accounting decision recommendations only; most production security controls remain planned and must not be claimed as production-ready.
 
 ## Authentication
 
@@ -62,6 +62,18 @@ Phase 2 implements the first document-intake boundary for PDF, JPEG, and PNG fil
 - Require `RUN_EXTRACTION` for extraction triggers and `CORRECT_EXTRACTED_INFORMATION` for corrections.
 
 Phase 3 implements only a guarded deterministic development extraction provider. It is not real OCR and production refuses it through settings validation. Production OCR providers, provider timeouts, retry policy, rate limiting, and provider privacy/security assessment remain future work.
+
+## Accounting Decision Security
+
+- Treat recommendation and rule output as untrusted until deterministic validation and human review are complete.
+- Permit accounting decision execution only for roles with `RUN_ACCOUNTING_DECISION`.
+- Do not grant Firm Admin implicit accounting execution authority.
+- Reject pending, running, failed, or non-downstream-ready extraction runs before decision execution.
+- Use effective extraction values for computation while preserving original provider observations.
+- Enforce firm/client/document/extraction scope in application logic and database constraints.
+- Do not log raw invoice values, corrected values, unrestricted recommendation payloads, supplier bank details, taxpayer identifiers, or document content.
+- Record only safe audit metadata for accounting decision start, success, and failure events.
+- Keep synthetic rule configuration clearly separated from practitioner-validated production policy.
 
 ## Audit Logging
 

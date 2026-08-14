@@ -1,6 +1,6 @@
 # MVP Acceptance Criteria
 
-These criteria describe measurable MVP behaviour. Some infrastructure, intake, and extraction criteria are implemented through Phase 3; accounting recommendation, approval, export, and review criteria remain future work.
+These criteria describe measurable MVP behaviour. Infrastructure, intake, extraction, and Phase 4 accounting decision foundations are implemented for local development and automated tests. Approval, export, and human review criteria remain future work.
 
 | ID | Acceptance criterion | Evidence expected |
 | --- | --- | --- |
