@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the architecture direction. Phase 3 implements structured extraction while preserving the Phase 0 modular-monolith direction.
+This document describes the architecture direction. Phase 4 implements the accounting decision engine foundation while preserving the Phase 0 modular-monolith direction.
 
 ## Architecture Style
 
@@ -36,7 +36,7 @@ Future optional components:
 - Cloud document-processing APIs.
 - Local machine-learning models.
 
-## Implemented Through Phase 3
+## Implemented Through Phase 4
 
 - Documentation.
 - Repository policy.
@@ -74,6 +74,14 @@ Future optional components:
 - Append-only extracted-field correction records with actor attribution and revision numbers.
 - Extraction audit events for start, success, failure, and correction.
 - Protected extraction, extraction metadata, and correction endpoints.
+- Accounting decision runs with lifecycle, engine lineage, source extraction linkage, source SHA-256, and safe failure codes.
+- Effective-value accounting decisions where extraction corrections override provider observations for downstream computation.
+- Deterministic required-field, arithmetic, supplier-matching, duplicate-detection, and journal-balance checks.
+- Provider/rule-independent recommendation persistence for GL account, tax code, cost centre, and category.
+- Proposed journal and journal-line persistence with Decimal monetary amounts and deterministic balance state.
+- Accounting decision findings, supplier-match candidates, duplicate candidates, explanations, evidence, and lineage.
+- Protected accounting decision endpoints scoped to client, document, and extraction run.
+- Accounting decision audit events for start, success, and failure.
 
 ## Planned Future Components
 
@@ -82,9 +90,9 @@ Future optional components:
 - Production malware scanning.
 - Secure document download.
 - Production OCR provider integration.
-- AI recommendation providers.
-- Accounting recommendation logic.
-- Invoice, receipt, journal, review, reconciliation, and export workflows.
+- Production AI recommendation providers.
+- Practitioner-validated accounting and tax rules.
+- Invoice, receipt, review, reconciliation, and export workflows.
 - SQL Account integration.
 - MyInvois integration.
 - Production deployment.
@@ -99,8 +107,9 @@ flowchart LR
     Admin[Firm Administrator] --> LP
     Auditor[Auditor / Read-Only User] --> LP
     LP --> Store[(Local Document Storage - Phase 2 development)]
-    LP --> DB[(PostgreSQL - Phase 1/2/3 metadata)]
+    LP --> DB[(PostgreSQL - Phase 1/2/3/4 metadata)]
     LP --> OCR[Development Extraction Provider - Phase 3]
+    LP --> Rules[Synthetic Decision Rules - Phase 4]
     LP --> AI[AI Recommendation Provider - future]
     LP --> SQL[SQL Account - future integration]
     LP --> MY[LHDN MyInvois - future integration]
@@ -118,7 +127,7 @@ flowchart TB
         Auth[Authentication and RBAC]
         Val[File validation and malware scan - Phase 2 boundary]
         Extract[Structured extraction validation - Phase 3 boundary]
-        Core[Deterministic accounting controls]
+        Core[Deterministic accounting controls - Phase 4 foundation]
         Review[Human review workflow]
         Approved[Approved post-review integration boundary]
         Audit[Audit event recording]
@@ -202,7 +211,37 @@ Stored accepted document
   -> audit events
 ```
 
-The deterministic development provider is not real OCR and is refused in production. Phase 3 does not implement raw OCR text storage, raw document download, accounting recommendations, journals, review queues, SQL Account, or MyInvois.
+The deterministic development provider is not real OCR and is refused in production. Phase 3 does not implement raw OCR text storage, raw document download, review queues, SQL Account, or MyInvois.
+
+## Phase 4 Accounting Decision Boundary
+
+Phase 4 exposes extraction-scoped accounting decision endpoints:
+
+- `POST /api/v1/clients/{client_id}/documents/{document_id}/extractions/{extraction_run_id}/accounting-decisions`
+- `GET /api/v1/clients/{client_id}/documents/{document_id}/extractions/{extraction_run_id}/accounting-decisions`
+- `GET /api/v1/clients/{client_id}/documents/{document_id}/extractions/{extraction_run_id}/accounting-decisions/{decision_run_id}`
+
+The decision trigger requires `RUN_ACCOUNTING_DECISION` plus explicit firm/client scope. Accountant and Senior Reviewer receive that permission. Firm Admin, Auditor, and Client Submitter do not. Viewing uses `REVIEW_RECOMMENDATIONS` plus explicit firm/client scope.
+
+The implemented decision pipeline is:
+
+```text
+Succeeded downstream-ready extraction run
+  -> effective extracted values from original fields plus latest corrections
+  -> supported document-type gate (`purchase_invoice` only in Phase 4)
+  -> deterministic required-field and arithmetic validation
+  -> accounting-domain Decimal money validation before journal persistence
+  -> structural three-letter currency validation before journal persistence
+  -> synthetic tenant/client-scoped supplier matching
+  -> duplicate candidate search inside the same firm/client scope
+  -> synthetic configurable recommendations
+  -> proposed journal generation
+  -> deterministic journal-balance validation
+  -> AccountingDecisionRun and child records
+  -> audit events
+```
+
+Accounting decision runs are immutable attempts. A rerun creates a new run. Unsupported document types, invalid monetary values, and invalid currency values produce deterministic findings rather than purchase-invoice accounting treatment or persistence failures. Valid lowercase currency values are normalized to uppercase for accounting output, but Phase 4 does not perform authoritative ISO-4217 validation. Proposed journal balance state is deterministic across totals, `is_balanced`, and `balance_status`. Phase 4 recommendations and proposed journals are not approvals, exports, postings, payment instructions, or professional accounting/tax advice. Phase 5 remains responsible for human review and approval/rejection workflows.
 
 ## Phase 1 Authentication Boundary
 

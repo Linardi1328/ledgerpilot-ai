@@ -54,7 +54,7 @@ pending -> running -> failed
 
 Terminal runs are not reset. A retry creates a new `ExtractionRun`.
 
-Only `succeeded` runs are downstream-ready. `pending`, `running`, and `failed` runs are not eligible for future Phase 4 accounting validation.
+Only `succeeded` runs are downstream-ready. `pending`, `running`, and `failed` runs are not eligible for Phase 4 accounting validation.
 
 ## Field Model
 
@@ -144,5 +144,5 @@ Running extraction requires `RUN_EXTRACTION`. Viewing extraction output currentl
 - Extraction is synchronous in Phase 3.
 - No raw OCR text endpoint exists.
 - No raw document download endpoint exists.
-- No accounting recommendations, invoice validation, journal generation, approval workflow, SQL Account export, or MyInvois integration exists.
+- Extraction itself does not perform accounting recommendations, invoice validation, journal generation, approval workflow, SQL Account export, or MyInvois integration. Phase 4 consumes eligible extraction runs for recommendation-only accounting decisions.
 - Production deployments still need production authentication, production object storage, production malware scanning, provider timeout/retry controls, rate limiting, monitoring, and privacy/security review.

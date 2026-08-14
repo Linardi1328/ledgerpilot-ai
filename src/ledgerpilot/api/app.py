@@ -5,6 +5,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from ledgerpilot import __version__
+from ledgerpilot.accounting.rules import AccountingDecisionPolicy, SyntheticAccountingDecisionPolicy
 from ledgerpilot.api.errors import register_error_handlers
 from ledgerpilot.api.middleware import RequestIDMiddleware
 from ledgerpilot.api.routes import api_router
@@ -27,6 +28,7 @@ def create_app(
     document_storage: DocumentStorage | None = None,
     malware_scanner: MalwareScanner | None = None,
     extraction_provider: ExtractionProvider | None = None,
+    accounting_decision_policy: AccountingDecisionPolicy | None = None,
 ) -> FastAPI:
     app_settings = settings or get_settings()
     configure_logging(app_settings.log_level)
@@ -39,7 +41,7 @@ def create_app(
     app = FastAPI(
         title="LedgerPilot AI",
         version=__version__,
-        description="Phase 3 OCR and structured extraction API. Not production-ready.",
+        description="Phase 4 accounting decision API foundation. Not production-ready.",
     )
     app.state.settings = app_settings
     app.state.engine = engine
@@ -48,6 +50,9 @@ def create_app(
     app.state.document_storage = document_storage or get_document_storage(app_settings)
     app.state.malware_scanner = malware_scanner or get_malware_scanner(app_settings)
     app.state.extraction_provider = extraction_provider or get_extraction_provider(app_settings)
+    app.state.accounting_decision_policy = (
+        accounting_decision_policy or SyntheticAccountingDecisionPolicy()
+    )
 
     app.add_middleware(RequestIDMiddleware)
     register_error_handlers(app)

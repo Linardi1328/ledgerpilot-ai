@@ -74,6 +74,9 @@ jobs:
       - name: PostgreSQL extraction constraint tests
         run: python -m pytest tests/integration/test_postgresql_extraction_constraints.py
 
+      - name: PostgreSQL accounting constraint tests
+        run: python -m pytest tests/integration/test_postgresql_accounting_constraints.py
+
       - name: Pytest
         run: python -m pytest --cov=ledgerpilot --cov-report=term-missing
 

@@ -23,6 +23,16 @@ EXPECTED_PHASE_3_TABLES = {
     "users",
 }
 
+EXPECTED_PHASE_4_TABLES = EXPECTED_PHASE_3_TABLES | {
+    "accounting_decision_findings",
+    "accounting_decision_runs",
+    "accounting_duplicate_candidates",
+    "accounting_recommendations",
+    "accounting_supplier_match_candidates",
+    "proposed_journal_lines",
+    "proposed_journals",
+}
+
 EXPECTED_TABLES_AFTER_PHASE_3_DOWNGRADE = {
     "alembic_version",
     "audit_events",
@@ -36,6 +46,11 @@ EXPECTED_TABLES_AFTER_PHASE_3_DOWNGRADE = {
 }
 
 EXPECTED_TIMEZONE_AWARE_TIMESTAMP_COLUMNS = {
+    "accounting_decision_findings.created_at",
+    "accounting_decision_runs.created_at",
+    "accounting_duplicate_candidates.created_at",
+    "accounting_recommendations.created_at",
+    "accounting_supplier_match_candidates.created_at",
     "audit_events.occurred_at",
     "client_access.created_at",
     "client_entities.created_at",
@@ -49,6 +64,8 @@ EXPECTED_TIMEZONE_AWARE_TIMESTAMP_COLUMNS = {
     "firm_memberships.created_at",
     "firms.created_at",
     "firms.updated_at",
+    "proposed_journal_lines.created_at",
+    "proposed_journals.created_at",
     "users.created_at",
     "users.updated_at",
 }
@@ -71,10 +88,19 @@ def test_initial_migration_upgrade_downgrade_and_schema(
     engine = create_engine(database_url)
     try:
         tables = set(inspect(engine).get_table_names())
-        assert tables == EXPECTED_PHASE_3_TABLES
+        assert tables == EXPECTED_PHASE_4_TABLES
     finally:
         engine.dispose()
 
+    command.downgrade(config, "0003_phase_3")
+    engine = create_engine(database_url)
+    try:
+        tables_after_phase_4_downgrade = set(inspect(engine).get_table_names())
+        assert tables_after_phase_4_downgrade == EXPECTED_PHASE_3_TABLES
+    finally:
+        engine.dispose()
+
+    command.upgrade(config, "head")
     command.downgrade(config, "0002_phase_2")
     engine = create_engine(database_url)
     try:

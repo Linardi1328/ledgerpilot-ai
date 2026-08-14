@@ -1,5 +1,14 @@
 from __future__ import annotations
 
+from ledgerpilot.persistence.models.accounting import (
+    AccountingDecisionFinding,
+    AccountingDecisionRun,
+    AccountingDuplicateCandidate,
+    AccountingRecommendation,
+    AccountingSupplierMatchCandidate,
+    ProposedJournal,
+    ProposedJournalLine,
+)
 from ledgerpilot.persistence.models.audit import AuditEvent
 from ledgerpilot.persistence.models.documents import Document, DocumentFile
 from ledgerpilot.persistence.models.extraction import (
@@ -16,6 +25,11 @@ from ledgerpilot.persistence.models.identity import (
 )
 
 __all__ = [
+    "AccountingDecisionFinding",
+    "AccountingDecisionRun",
+    "AccountingDuplicateCandidate",
+    "AccountingRecommendation",
+    "AccountingSupplierMatchCandidate",
     "AuditEvent",
     "ClientAccess",
     "ClientEntity",
@@ -26,5 +40,7 @@ __all__ = [
     "ExtractionRun",
     "Firm",
     "FirmMembership",
+    "ProposedJournal",
+    "ProposedJournalLine",
     "User",
 ]

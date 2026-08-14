@@ -50,16 +50,24 @@ Corrections must preserve previous values and history. Depending on the accounti
 
 ## Recommendation Lineage
 
-Future recommendations should retain:
+Phase 4 recommendations retain:
 
 - Recommendation.
 - Explanation.
 - Confidence.
 - Rule version.
 - Model version.
-- Reviewer.
-- Correction.
+- Source extraction run.
+- Source document.
 - Timestamp.
+
+Reviewer decisions, approval attribution, rejection, and override history remain Phase 5 work.
+
+## Phase 4 Decision Boundary
+
+Accounting decision runs are immutable recommendation attempts. They may validate required fields, compare Decimal arithmetic, detect possible duplicates, suggest supplier matches, recommend coding, and propose journals. They do not approve, reject, post, export, pay, or alter supplier bank details.
+
+Only succeeded downstream-ready extraction runs may enter the Phase 4 decision engine. Effective extraction values use latest human corrections while original provider observations remain preserved.
 
 ## Human Review Boundary
 
