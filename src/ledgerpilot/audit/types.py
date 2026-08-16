@@ -18,3 +18,5 @@ class AuditEventType(StrEnum):
     ACCOUNTING_DECISION_STARTED = "accounting_decision_started"
     ACCOUNTING_DECISION_SUCCEEDED = "accounting_decision_succeeded"
     ACCOUNTING_DECISION_FAILED = "accounting_decision_failed"
+    REVIEW_TASK_CREATED = "review_task_created"
+    REVIEW_TASK_ESCALATED = "review_task_escalated"

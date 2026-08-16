@@ -11,6 +11,8 @@ class Permission(StrEnum):
     CORRECT_EXTRACTED_INFORMATION = "correct_extracted_information"
     RUN_ACCOUNTING_DECISION = "run_accounting_decision"
     REVIEW_RECOMMENDATIONS = "review_recommendations"
+    CREATE_REVIEW_TASK = "create_review_task"
+    VIEW_REVIEW_TASK = "view_review_task"
     APPROVE_ORDINARY_TRANSACTION = "approve_ordinary_transaction"
     APPROVE_HIGH_RISK_TRANSACTION = "approve_high_risk_transaction"
     REJECT_TRANSACTION = "reject_transaction"
