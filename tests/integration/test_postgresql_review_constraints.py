@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import os
+from collections.abc import Generator
 from datetime import UTC, datetime
 
-from sqlalchemy.engine import Engine
+import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.orm import Session
 
 from ledgerpilot.persistence.models.identity import ClientAccess
@@ -12,8 +16,24 @@ from tests.integration.test_postgresql_accounting_constraints import (
     _assert_integrity_error,
     _persist_additional_decision,
     _seed_postgresql_accounting_constraint_data,
-    postgresql_engine,
 )
+
+
+@pytest.fixture(scope="module")
+def postgresql_engine() -> Generator[Engine]:
+    database_url = os.environ.get("LEDGERPILOT_DATABASE_URL")
+    if not database_url:
+        pytest.skip("LEDGERPILOT_DATABASE_URL is not set for PostgreSQL constraint tests")
+
+    url = make_url(database_url)
+    if not url.drivername.startswith("postgresql"):
+        pytest.skip("PostgreSQL constraint tests require a PostgreSQL database URL")
+
+    engine = create_engine(database_url, future=True, hide_parameters=True)
+    try:
+        yield engine
+    finally:
+        engine.dispose()
 
 
 def test_postgresql_enforces_review_task_scope_owner_and_state_constraints(
