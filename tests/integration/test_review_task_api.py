@@ -319,4 +319,5 @@ def _review_url(
     extraction_run_id: UUID,
     decision_run_id: UUID,
 ) -> str:
-    return f"{_decision_url(client_id, document_id, extraction_run_id)}/{decision_run_id}/review-tasks"
+    base_url = _decision_url(client_id, document_id, extraction_run_id)
+    return f"{base_url}/{decision_run_id}/review-tasks"
