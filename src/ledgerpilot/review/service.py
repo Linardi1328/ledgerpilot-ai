@@ -63,13 +63,16 @@ class ReviewTaskService:
             extraction_run_id=extraction_run_id,
             decision_run_id=decision_run_id,
         )
-        if self._reviews.get_by_decision(
-            firm_id=principal.firm_id,
-            client_id=client_id,
-            document_id=document_id,
-            extraction_run_id=extraction_run_id,
-            decision_run_id=decision_run_id,
-        ) is not None:
+        if (
+            self._reviews.get_by_decision(
+                firm_id=principal.firm_id,
+                client_id=client_id,
+                document_id=document_id,
+                extraction_run_id=extraction_run_id,
+                decision_run_id=decision_run_id,
+            )
+            is not None
+        ):
             raise ApiError(
                 status_code=409,
                 code="review_task_exists",
