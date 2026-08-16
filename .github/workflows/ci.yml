@@ -77,6 +77,9 @@ jobs:
       - name: PostgreSQL accounting constraint tests
         run: python -m pytest tests/integration/test_postgresql_accounting_constraints.py
 
+      - name: PostgreSQL review constraint tests
+        run: python -m pytest tests/integration/test_postgresql_review_constraints.py
+
       - name: Pytest
         run: python -m pytest --cov=ledgerpilot --cov-report=term-missing
 

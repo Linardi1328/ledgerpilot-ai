@@ -17,14 +17,15 @@ def test_app_creation(client: TestClient) -> None:
     assert response.status_code == 200
 
 
-def test_openapi_metadata_uses_phase_4_label(client: TestClient) -> None:
+def test_openapi_metadata_uses_phase_5_label(client: TestClient) -> None:
     response = client.get("/openapi.json")
 
     assert response.status_code == 200
     description = response.json()["info"]["description"]
-    assert description == "Phase 4 accounting decision API foundation. Not production-ready."
+    assert description == "Phase 5 human review foundation. Not production-ready."
     assert "Phase 1" not in description
     assert "Phase 2" not in description
+    assert "Phase 4" not in description
 
 
 def test_liveness(client: TestClient) -> None:

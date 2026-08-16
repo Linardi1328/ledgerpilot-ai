@@ -93,6 +93,19 @@ class IdentityRepository:
         )
         return self._session.scalar(statement)
 
+    def get_active_membership_by_id_for_firm(
+        self,
+        *,
+        membership_id: UUID,
+        firm_id: UUID,
+    ) -> FirmMembership | None:
+        statement = select(FirmMembership).where(
+            FirmMembership.id == membership_id,
+            FirmMembership.firm_id == firm_id,
+            FirmMembership.is_active.is_(True),
+        )
+        return self._session.scalar(statement)
+
     def get_client_for_firm(self, *, firm_id: UUID, client_id: UUID) -> ClientEntity | None:
         statement = select(ClientEntity).where(
             ClientEntity.id == client_id,

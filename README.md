@@ -1,6 +1,6 @@
 # LedgerPilot AI
 
-**Current status: Phase 4 — Accounting Decision Engine Foundation (review branch)**
+**Current status: Phase 5 — Human Review, first slice (review branch)**
 
 LedgerPilot AI is a planned accounting automation assistant for reducing repetitive bookkeeping and accounting work while preserving deterministic accounting controls, traceability, and human review.
 
@@ -84,14 +84,14 @@ Initial MVP scope includes synthetic purchase invoices, manual structured input,
 
 See [Role and Permission Model](docs/ROLE_PERMISSION_MODEL.md).
 
-## Implemented Through Phase 3
+## Implemented Through Phase 4
 
-`main` includes the Phase 1 infrastructure, Phase 2 secure document-intake boundary, and Phase 3 structured-extraction foundation:
+`main` includes the Phase 1 infrastructure, Phase 2 secure document-intake boundary, Phase 3 structured-extraction foundation, and the merged Phase 4 accounting-decision foundation:
 
 - FastAPI application factory and `/api/v1` routing.
 - Typed Pydantic settings with guarded environment/auth/storage/scanner configuration.
 - PostgreSQL-targeted SQLAlchemy 2.x persistence and Alembic migrations.
-- Firm, user, membership, client, client-access, audit-event, document, and document-file primitives.
+- Firm, user, membership, client, client-access, audit-event, document, document-file, extraction, and accounting-decision primitives.
 - Development-only authentication boundary backed by persisted memberships.
 - RBAC role and permission definitions aligned with Phase 0.
 - Tenant/client-scoped repository access patterns.
@@ -101,44 +101,45 @@ See [Role and Permission Model](docs/ROLE_PERMISSION_MODEL.md).
 - Protected safe document-metadata endpoint.
 - Bounded streaming upload, size enforcement, SHA-256 hashing, filename validation, MIME/signature/extension checks, staging, quarantine, accepted storage, and audit events.
 - Provider-independent document-storage and malware-scanner boundaries with local development/test implementations only.
-- Provider-independent extraction boundary.
-- Guarded deterministic development extraction provider for tests and local development.
-- Extraction-run persistence with provider lineage, source document/file linkage, source SHA-256, status, failure code, and request ID.
-- Validated extracted-field persistence with field paths, original/effective values, confidence, source page, and optional source locator.
-- Append-only extracted-field correction history with actor attribution and revision numbers.
-- Protected extraction and correction endpoints.
-- Extraction audit events for start, success, failure, and correction.
-- GitHub Actions CI quality gate.
-
-Phase 3 does not implement production OCR, AI providers, accounting recommendations, journals, review queues, bank reconciliation, SQL Account, MyInvois, frontend work, production authentication, production object storage, production malware scanning, or production deployment.
-
-## Phase 4 Review Branch
-
-The Phase 4 review branch adds an accounting decision engine foundation:
-
+- Provider-independent extraction boundary and deterministic development extraction provider.
+- Extraction-run persistence with provider lineage, source document/file linkage, source SHA-256, status, failure code, request ID, and append-only corrections.
 - Immutable, versioned accounting decision runs scoped to firm, client, document, and extraction run.
-- Eligibility enforcement so only succeeded downstream-ready extraction runs can enter accounting decisions.
-- Effective extracted-value consumption, where latest human corrections override provider values without mutating original provider observations.
-- Purchase-invoice-specific accounting treatment is gated to `document.type == purchase_invoice`.
-- Deterministic required-field, arithmetic, duplicate, supplier-matching, and journal-balance checks.
-- Accounting-domain monetary validation before journal generation or persistence, with no silent rounding.
-- Structural three-letter currency validation before proposed journal persistence, with lowercase valid codes normalized to uppercase.
+- Deterministic required-field, arithmetic, duplicate, supplier-matching, monetary, currency, and journal-balance checks.
 - Provider/rule-independent recommendation records for GL account, tax code, cost centre, and category.
 - Proposed journal and journal-line records for future human review.
-- Structured findings and flags with stable machine-readable codes.
-- Safe accounting decision audit events.
+- Safe accounting-decision audit events.
 - Accountant/Senior Reviewer decision execution permission; Firm Admin, Auditor, and Client Submitter cannot execute decision runs.
 - PostgreSQL migration and constraint coverage for Phase 4 ownership and accounting invariants.
+- GitHub Actions CI quality gate.
 
-Phase 4 recommendations are not approvals and are not professional accounting or tax advice. Unsupported document types, invalid monetary values, and invalid currencies produce review findings rather than type-specific journals. The current accounting policy and tax-code behavior use synthetic configurable rules only and require future practitioner validation.
+Phase 4 was merged through PR #5. Its recommendations are not approvals and are not professional accounting or tax advice. Unsupported document types, invalid monetary values, and invalid currencies produce review findings rather than type-specific journals. The current accounting policy and tax-code behavior use synthetic configurable rules only and require future practitioner validation.
+
+## Phase 5 Human Review — First Slice
+
+The current review branch adds only the first controlled human-review slice:
+
+- one review task per succeeded Phase 4 accounting decision;
+- explicit linkage to firm, client, document, extraction run, and accounting decision run;
+- active Accountant/Senior Reviewer ownership scoped to an authorized client;
+- dedicated review-task create/read permissions;
+- public create/list/get review-task API boundaries;
+- a minimal deterministic lifecycle of `open -> escalated`;
+- deterministic senior escalation state with senior ownership and timestamp;
+- `review_task_created` and `review_task_escalated` audit events;
+- PostgreSQL constraints for source scope, owner client access, and valid state combinations.
+
+The public API in this first slice is intentionally read/create only. The senior-escalation operation exists at the service/domain layer for deterministic lifecycle coverage; a public escalation mutation boundary is deferred to a later Phase 5 slice.
+
+Creating or escalating a review task does not modify the underlying Phase 4 accounting decision and never converts a recommendation into an approval. Approval, rejection, correction of approved records, comments, information requests, posting, payment execution, supplier bank-detail changes, SQL Account export, production MyInvois integration, and production OCR/auth/storage remain out of scope. See [Human Review](docs/HUMAN_REVIEW.md).
 
 ## Planned Capabilities
 
 - Production-grade document storage, malware scanning, retention, and secure retrieval.
 - Production OCR provider integration.
 - Practitioner-validated accounting and tax configuration.
-- Review routing, escalation, approval, correction, rejection, and information requests.
-- Audit history.
+- Remaining review workflow actions: approval, correction, rejection, comments, and information requests.
+- Public senior-escalation mutation boundary after the first review slice is validated.
+- Audit-history presentation.
 - Future accounting-platform export.
 - Future Malaysian MyInvois/e-Invoice support.
 
@@ -212,7 +213,7 @@ The implemented endpoints are:
 - `POST /api/v1/clients/{client_id}/documents`
 - `GET /api/v1/clients/{client_id}/documents/{document_id}`
 
-There is no raw document download endpoint through Phase 3.
+There is no raw document download endpoint through the current Phase 5 first slice.
 
 Local filesystem storage and the deterministic development malware scanner are for local development and automated tests only. They are not production storage or production malware protection. See [Document Intake Security](docs/DOCUMENT_INTAKE_SECURITY.md).
 
@@ -229,7 +230,7 @@ The implemented endpoints are:
 
 The development extraction provider is deterministic synthetic test infrastructure. It is not real OCR and is not evidence of OCR accuracy. Provider output is treated as untrusted observations, structurally validated before persistence, and retained as original provider values. Corrections create append-only history and do not overwrite the original extraction.
 
-Extraction output stops at structured fields. It does not perform invoice arithmetic validation, supplier matching, accounting coding, tax recommendation, journal generation, approval routing, SQL Account export, or MyInvois submission. See [Extraction](docs/EXTRACTION.md).
+The extraction module itself stops at structured fields; downstream Phase 4 accounting decisions perform accounting validation and recommendations without mutating original extraction evidence. See [Extraction](docs/EXTRACTION.md).
 
 ## Accounting Decisions
 
@@ -241,7 +242,19 @@ The implemented endpoints are:
 - `GET /api/v1/clients/{client_id}/documents/{document_id}/extractions/{extraction_run_id}/accounting-decisions`
 - `GET /api/v1/clients/{client_id}/documents/{document_id}/extractions/{extraction_run_id}/accounting-decisions/{decision_run_id}`
 
-Decision responses include validation findings, supplier-match candidates, duplicate candidates, recommendations, explanations, evidence, rule lineage, proposed journals, and internally consistent journal-balance state. Phase 4 only generates purchase-invoice-specific recommendations and journals for `purchase_invoice`; unsupported document types produce findings and no type-specific journal. They do not include approval, rejection, review routing, export, payments, SQL Account, MyInvois, or supplier bank-detail changes. See [Accounting Decision Engine](docs/ACCOUNTING_DECISION_ENGINE.md).
+Decision responses include validation findings, supplier-match candidates, duplicate candidates, recommendations, explanations, evidence, rule lineage, proposed journals, and internally consistent journal-balance state. Phase 4 only generates purchase-invoice-specific recommendations and journals for `purchase_invoice`; unsupported document types produce findings and no type-specific journal. They do not include approval, rejection, export, payments, SQL Account, MyInvois, or supplier bank-detail changes. See [Accounting Decision Engine](docs/ACCOUNTING_DECISION_ENGINE.md).
+
+## Human Review
+
+The Phase 5 first slice adds review-task boundaries on top of a succeeded accounting decision.
+
+The implemented endpoints are:
+
+- `POST /api/v1/clients/{client_id}/documents/{document_id}/extractions/{extraction_run_id}/accounting-decisions/{decision_run_id}/review-tasks`
+- `GET /api/v1/clients/{client_id}/documents/{document_id}/extractions/{extraction_run_id}/accounting-decisions/{decision_run_id}/review-tasks`
+- `GET /api/v1/clients/{client_id}/documents/{document_id}/extractions/{extraction_run_id}/accounting-decisions/{decision_run_id}/review-tasks/{review_task_id}`
+
+These endpoints are limited to accountants and senior reviewers with client access. Review tasks preserve the exact Phase 4 source scope and do not imply or record approval. See [Human Review](docs/HUMAN_REVIEW.md).
 
 ## Proposed Technology
 
@@ -290,6 +303,7 @@ ledgerpilot-ai/
 │   ├── DOMAIN_MODEL.md
 │   ├── EXTRACTION.md
 │   ├── GLOSSARY.md
+│   ├── HUMAN_REVIEW.md
 │   ├── MVP_SCOPE.md
 │   ├── NON_FUNCTIONAL_REQUIREMENTS.md
 │   ├── PRIVACY.md
@@ -437,6 +451,7 @@ See [Roadmap](docs/ROADMAP.md).
 - [Non-Functional Requirements](docs/NON_FUNCTIONAL_REQUIREMENTS.md)
 - [Acceptance Criteria](docs/ACCEPTANCE_CRITERIA.md)
 - [Accounting Decision Engine](docs/ACCOUNTING_DECISION_ENGINE.md)
+- [Human Review](docs/HUMAN_REVIEW.md)
 - [Domain Model](docs/DOMAIN_MODEL.md)
 - [Workflows](docs/WORKFLOWS.md)
 - [Role and Permission Model](docs/ROLE_PERMISSION_MODEL.md)
@@ -454,7 +469,7 @@ See [Roadmap](docs/ROADMAP.md).
 
 ## Production-Readiness Disclaimer
 
-LedgerPilot AI is not production-ready. Phase 4 establishes backend infrastructure, local-development secure document intake, deterministic structured extraction, and a synthetic accounting decision foundation for review only. Production authentication, production deployment, production object storage, production malware scanning, production OCR, production accounting/tax policy, approvals, review workflows, SQL Account integration, and MyInvois integration are not implemented.
+LedgerPilot AI is not production-ready. The current Phase 5 first slice establishes backend infrastructure, local-development secure document intake, deterministic structured extraction, a synthetic accounting-decision foundation, and controlled review-task creation/read/escalation state for review only. Production authentication, production deployment, production object storage, production malware scanning, production OCR, production accounting/tax policy, approvals, posting, SQL Account integration, and MyInvois integration are not implemented.
 
 ## Accounting, Tax, and Legal Disclaimer
 
