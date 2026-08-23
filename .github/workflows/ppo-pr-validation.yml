@@ -1,0 +1,78 @@
+name: PPO PR validation
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ledgerpilot_ci
+          POSTGRES_PASSWORD: fake_ci_password
+          POSTGRES_DB: ledgerpilot_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ledgerpilot_ci -d ledgerpilot_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      LEDGERPILOT_ENV: test
+      LEDGERPILOT_DATABASE_URL: postgresql+psycopg://ledgerpilot_ci:fake_ci_password@127.0.0.1:5432/ledgerpilot_ci
+      LEDGERPILOT_LOG_LEVEL: INFO
+      LEDGERPILOT_AUTH_MODE: disabled
+      LEDGERPILOT_DEV_AUTH_ENABLED: "false"
+      LEDGERPILOT_DOCUMENT_MAX_BYTES: "10485760"
+      LEDGERPILOT_DOCUMENT_STORAGE_BACKEND: local
+      LEDGERPILOT_DOCUMENT_STORAGE_ROOT: local_storage
+      LEDGERPILOT_MALWARE_SCANNER_MODE: disabled
+      LEDGERPILOT_EXTRACTION_PROVIDER: disabled
+      LEDGERPILOT_EXTRACTION_SCHEMA_VERSION: ledgerpilot.extraction.v1
+      LEDGERPILOT_EXTRACTION_MAX_FIELDS: "500"
+      LEDGERPILOT_EXTRACTION_MAX_VALUE_CHARS: "4000"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: python -m pip install -e ".[dev]"
+      - name: Node syntax checks
+        shell: bash
+        run: |
+          while IFS= read -r -d '' file; do node --check "$file"; done < <(find . -path ./.git -prune -o -type f \( -name '*.js' -o -name '*.mjs' -o -name '*.cjs' \) -print0)
+      - name: Shell syntax checks
+        shell: bash
+        run: |
+          while IFS= read -r -d '' file; do bash -n "$file"; done < <(find . -path ./.git -prune -o -type f -name '*.sh' -print0)
+      - name: Full regression suite
+        run: |
+          python -m ruff check .
+          python -m ruff format --check .
+          python -m mypy src
+          alembic upgrade head
+          alembic downgrade 0001_phase_1
+          alembic upgrade head
+          alembic downgrade base
+          alembic upgrade head
+          python -m pytest tests/integration/test_postgresql_document_constraints.py
+          python -m pytest tests/integration/test_postgresql_extraction_constraints.py
+          python -m pytest tests/integration/test_postgresql_accounting_constraints.py
+          python -m pytest tests/integration/test_postgresql_review_constraints.py
+          python -m pytest --cov=ledgerpilot --cov-report=term-missing
+          python -m build
+      - name: Diff whitespace checks
+        run: |
+          git diff --check
+          git diff --check origin/main...HEAD
