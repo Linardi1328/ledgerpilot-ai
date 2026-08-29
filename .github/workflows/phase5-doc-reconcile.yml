@@ -24,6 +24,9 @@ jobs:
           python - <<'PY'
           from pathlib import Path
 
+          def section(lines: list[str]) -> str:
+              return "\n".join(lines) + "\n\n"
+
           readme_path = Path("README.md")
           text = readme_path.read_text()
           text = text.replace(
@@ -40,71 +43,71 @@ jobs:
 
           phase5_start = text.index("## Phase 5 Human Review — First Slice")
           planned_start = text.index("## Planned Capabilities", phase5_start)
-          phase5_section = '''## Phase 5 Human Review — Completion
-
-The current review branch completes the human-supervised Phase 5 workflow:
-
-- one scoped review task per succeeded Phase 4 accounting decision;
-- deterministic `ordinary`, `senior_review_required`, and `blocked` risk classes;
-- Accountant/Senior Reviewer ownership restricted to authorised clients;
-- public create/read, senior-escalation, comment, information-request, approval, rejection, and history boundaries;
-- client-submitters receive only the outstanding information request and response boundary;
-- ordinary approval by the assigned authorised reviewer and senior-only approval for senior-routed work;
-- deterministic approval blocking for missing/unbalanced journals and error findings;
-- immutable review outcomes linked to the exact accounting decision and proposed journal;
-- `corrected_and_approved` outcomes when human extraction corrections preceded the reviewed decision;
-- stale-source rejection when a newer extraction correction exists after the accounting decision;
-- append-only review comments and audit events;
-- read-only review history for authorised auditors;
-- PostgreSQL constraints and row-locking around review ownership, scope, state, and terminal outcomes.
-
-Creating, escalating, commenting on, or requesting information for a review task never converts an AI/rule recommendation into an approval. Approval is an explicit attributable human workflow outcome and does not mutate the underlying Phase 4 decision or proposed journal. Posting, payment execution, supplier-bank-detail changes, SQL Account export, production MyInvois integration, and production OCR/auth/storage remain out of scope. See [Human Review](docs/HUMAN_REVIEW.md).
-
-'''
+          phase5_section = section([
+              "## Phase 5 Human Review — Completion",
+              "",
+              "The current review branch completes the human-supervised Phase 5 workflow:",
+              "",
+              "- one scoped review task per succeeded Phase 4 accounting decision;",
+              "- deterministic `ordinary`, `senior_review_required`, and `blocked` risk classes;",
+              "- Accountant/Senior Reviewer ownership restricted to authorised clients;",
+              "- public create/read, senior-escalation, comment, information-request, approval, rejection, and history boundaries;",
+              "- client-submitters receive only the outstanding information request and response boundary;",
+              "- ordinary approval by the assigned authorised reviewer and senior-only approval for senior-routed work;",
+              "- deterministic approval blocking for missing/unbalanced journals and error findings;",
+              "- immutable review outcomes linked to the exact accounting decision and proposed journal;",
+              "- `corrected_and_approved` outcomes when human extraction corrections preceded the reviewed decision;",
+              "- stale-source rejection when a newer extraction correction exists after the accounting decision;",
+              "- append-only review comments and audit events;",
+              "- read-only review history for authorised auditors;",
+              "- PostgreSQL constraints and row-locking around review ownership, scope, state, and terminal outcomes.",
+              "",
+              "Creating, escalating, commenting on, or requesting information for a review task never converts an AI/rule recommendation into an approval. Approval is an explicit attributable human workflow outcome and does not mutate the underlying Phase 4 decision or proposed journal. Posting, payment execution, supplier-bank-detail changes, SQL Account export, production MyInvois integration, and production OCR/auth/storage remain out of scope. See [Human Review](docs/HUMAN_REVIEW.md).",
+          ])
           text = text[:phase5_start] + phase5_section + text[planned_start:]
 
           planned_start = text.index("## Planned Capabilities")
           accounting_start = text.index("## Accounting Controls", planned_start)
-          planned_section = '''## Planned Capabilities
-
-- Production-grade document storage, malware scanning, retention, and secure retrieval.
-- Production OCR provider integration.
-- Practitioner-validated accounting and tax configuration.
-- Controlled post-approval correction, reversal, and supersession workflows.
-- Cross-decision review-queue/query APIs for larger operational workloads.
-- Future accounting-platform export.
-- Future Malaysian MyInvois/e-Invoice support.
-
-'''
+          planned_section = section([
+              "## Planned Capabilities",
+              "",
+              "- Production-grade document storage, malware scanning, retention, and secure retrieval.",
+              "- Production OCR provider integration.",
+              "- Practitioner-validated accounting and tax configuration.",
+              "- Controlled post-approval correction, reversal, and supersession workflows.",
+              "- Cross-decision review-queue/query APIs for larger operational workloads.",
+              "- Future accounting-platform export.",
+              "- Future Malaysian MyInvois/e-Invoice support.",
+          ])
           text = text[:planned_start] + planned_section + text[accounting_start:]
 
           human_start = text.index("## Human Review")
           tech_start = text.index("## Proposed Technology", human_start)
-          human_section = '''## Human Review
-
-Phase 5 adds a controlled human-review workflow on top of succeeded accounting decisions.
-
-The implemented review-task endpoints are rooted at:
-
-`/api/v1/clients/{client_id}/documents/{document_id}/extractions/{extraction_run_id}/accounting-decisions/{decision_run_id}/review-tasks`
-
-Implemented operations include:
-
-- `POST /review-tasks`
-- `GET /review-tasks`
-- `GET /review-tasks/{review_task_id}`
-- `POST /review-tasks/{review_task_id}/escalations`
-- `POST /review-tasks/{review_task_id}/comments`
-- `POST /review-tasks/{review_task_id}/information-requests`
-- `GET /review-tasks/{review_task_id}/information-request`
-- `POST /review-tasks/{review_task_id}/information-responses`
-- `POST /review-tasks/{review_task_id}/approve`
-- `POST /review-tasks/{review_task_id}/reject`
-- `GET /review-tasks/{review_task_id}/history`
-
-Reviewer actions remain tenant/client scoped and backend-authorised. Client submitters do not receive internal review history. AI/rule recommendations remain recommendations until an authorised human approval outcome is recorded. Approved outcomes preserve exact decision/journal/source lineage and do not post entries or trigger external integrations. See [Human Review](docs/HUMAN_REVIEW.md).
-
-'''
+          human_section = section([
+              "## Human Review",
+              "",
+              "Phase 5 adds a controlled human-review workflow on top of succeeded accounting decisions.",
+              "",
+              "The implemented review-task endpoints are rooted at:",
+              "",
+              "`/api/v1/clients/{client_id}/documents/{document_id}/extractions/{extraction_run_id}/accounting-decisions/{decision_run_id}/review-tasks`",
+              "",
+              "Implemented operations include:",
+              "",
+              "- `POST /review-tasks`",
+              "- `GET /review-tasks`",
+              "- `GET /review-tasks/{review_task_id}`",
+              "- `POST /review-tasks/{review_task_id}/escalations`",
+              "- `POST /review-tasks/{review_task_id}/comments`",
+              "- `POST /review-tasks/{review_task_id}/information-requests`",
+              "- `GET /review-tasks/{review_task_id}/information-request`",
+              "- `POST /review-tasks/{review_task_id}/information-responses`",
+              "- `POST /review-tasks/{review_task_id}/approve`",
+              "- `POST /review-tasks/{review_task_id}/reject`",
+              "- `GET /review-tasks/{review_task_id}/history`",
+              "",
+              "Reviewer actions remain tenant/client scoped and backend-authorised. Client submitters do not receive internal review history. AI/rule recommendations remain recommendations until an authorised human approval outcome is recorded. Approved outcomes preserve exact decision/journal/source lineage and do not post entries or trigger external integrations. See [Human Review](docs/HUMAN_REVIEW.md).",
+          ])
           text = text[:human_start] + human_section + text[tech_start:]
 
           old_disclaimer = "LedgerPilot AI is not production-ready. The current Phase 5 first slice establishes backend infrastructure, local-development secure document intake, deterministic structured extraction, a synthetic accounting-decision foundation, and controlled review-task creation/read/escalation state for review only. Production authentication, production deployment, production object storage, production malware scanning, production OCR, production accounting/tax policy, approvals, posting, SQL Account integration, and MyInvois integration are not implemented."
