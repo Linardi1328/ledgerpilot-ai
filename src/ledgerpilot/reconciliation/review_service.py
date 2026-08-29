@@ -285,11 +285,14 @@ class ReconciliationReviewService:
                 code="reconciliation_candidate_required",
                 message="A candidate must be selected before approving a reconciliation match.",
             )
-        if self._reviews.get_outcome_for_review(
-            firm_id=principal.firm_id,
-            client_id=client_id,
-            reconciliation_review_id=review.id,
-        ) is not None:
+        if (
+            self._reviews.get_outcome_for_review(
+                firm_id=principal.firm_id,
+                client_id=client_id,
+                reconciliation_review_id=review.id,
+            )
+            is not None
+        ):
             raise ApiError(
                 status_code=409,
                 code="reconciliation_outcome_exists",
@@ -386,11 +389,14 @@ class ReconciliationReviewService:
             reconciliation_review_id=reconciliation_review_id,
         )
         self._require_nonterminal(review)
-        if self._reviews.get_outcome_for_review(
-            firm_id=principal.firm_id,
-            client_id=client_id,
-            reconciliation_review_id=review.id,
-        ) is not None:
+        if (
+            self._reviews.get_outcome_for_review(
+                firm_id=principal.firm_id,
+                client_id=client_id,
+                reconciliation_review_id=review.id,
+            )
+            is not None
+        ):
             raise ApiError(
                 status_code=409,
                 code="reconciliation_outcome_exists",
