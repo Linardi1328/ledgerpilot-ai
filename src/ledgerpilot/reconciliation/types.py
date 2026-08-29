@@ -191,12 +191,16 @@ class ReconciliationMatchResult:
     source_transaction_id: str
     status: ReconciliationCandidateStatus
     candidates: tuple[ReconciliationCandidateDecision, ...]
+    matcher_name: str
+    matcher_version: str
 
     def __post_init__(self) -> None:
         if not self.source_transaction_id.strip():
             raise ValueError("source_transaction_id must not be blank")
         if not isinstance(self.status, ReconciliationCandidateStatus):
             raise TypeError("status must be ReconciliationCandidateStatus")
+        if not self.matcher_name.strip() or not self.matcher_version.strip():
+            raise ValueError("match result matcher lineage must not be blank")
         if self.status is ReconciliationCandidateStatus.UNMATCHED and self.candidates:
             raise ValueError("unmatched result cannot contain candidates")
         if (
@@ -204,3 +208,9 @@ class ReconciliationMatchResult:
             and not self.candidates
         ):
             raise ValueError("candidates_available result requires candidates")
+        if any(
+            candidate.matcher_name != self.matcher_name
+            or candidate.matcher_version != self.matcher_version
+            for candidate in self.candidates
+        ):
+            raise ValueError("candidate matcher lineage must match result lineage")

@@ -23,6 +23,12 @@ from ledgerpilot.persistence.models.identity import (
     FirmMembership,
     User,
 )
+from ledgerpilot.persistence.models.reconciliation import (
+    BankImportBatchRecord,
+    BankTransactionRecord,
+    ReconciliationCandidateRecord,
+    ReconciliationMatchRunRecord,
+)
 from ledgerpilot.persistence.models.review import ReviewComment, ReviewOutcome, ReviewTask
 
 __all__ = [
@@ -32,6 +38,8 @@ __all__ = [
     "AccountingRecommendation",
     "AccountingSupplierMatchCandidate",
     "AuditEvent",
+    "BankImportBatchRecord",
+    "BankTransactionRecord",
     "ClientAccess",
     "ClientEntity",
     "Document",
@@ -43,6 +51,8 @@ __all__ = [
     "FirmMembership",
     "ProposedJournal",
     "ProposedJournalLine",
+    "ReconciliationCandidateRecord",
+    "ReconciliationMatchRunRecord",
     "ReviewComment",
     "ReviewOutcome",
     "ReviewTask",

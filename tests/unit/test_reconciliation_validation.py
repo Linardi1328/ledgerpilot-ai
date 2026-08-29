@@ -7,7 +7,12 @@ from uuid import UUID
 import pytest
 
 from ledgerpilot.reconciliation.matching import ReconciliationMatchingPolicy
-from ledgerpilot.reconciliation.types import BankTransactionDirection, ImportedBankTransaction
+from ledgerpilot.reconciliation.types import (
+    BankTransactionDirection,
+    ImportedBankTransaction,
+    ReconciliationCandidateStatus,
+    ReconciliationMatchResult,
+)
 
 FIRM_ID = UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
 CLIENT_ID = UUID("11111111-1111-1111-1111-111111111111")
@@ -48,3 +53,14 @@ def test_matching_policy_rejects_non_finite_or_out_of_range_scores() -> None:
 
     with pytest.raises(ValueError, match="matching scores must be between zero and one"):
         ReconciliationMatchingPolicy(exact_reference_score=Decimal("1.01"))
+
+
+def test_match_result_requires_matcher_lineage_even_when_unmatched() -> None:
+    with pytest.raises(ValueError, match="matcher lineage"):
+        ReconciliationMatchResult(
+            source_transaction_id="txn-validation-001",
+            status=ReconciliationCandidateStatus.UNMATCHED,
+            candidates=(),
+            matcher_name="",
+            matcher_version="1.0",
+        )

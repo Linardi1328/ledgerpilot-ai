@@ -73,12 +73,16 @@ class DeterministicReconciliationMatcher:
                 source_transaction_id=transaction.source_transaction_id,
                 status=ReconciliationCandidateStatus.UNMATCHED,
                 candidates=(),
+                matcher_name=self.matcher_name,
+                matcher_version=self.matcher_version,
             )
 
         return ReconciliationMatchResult(
             source_transaction_id=transaction.source_transaction_id,
             status=ReconciliationCandidateStatus.CANDIDATES_AVAILABLE,
             candidates=tuple(candidates),
+            matcher_name=self.matcher_name,
+            matcher_version=self.matcher_version,
         )
 
     def _score_candidate(
