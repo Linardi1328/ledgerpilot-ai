@@ -278,6 +278,18 @@ def test_corrections_are_attributed_and_stale_decisions_fail_closed(
     assert approved.json()["outcome"]["outcome_type"] == "corrected_and_approved"
     assert approved.json()["outcome"]["source_correction_count"] == 1
 
+    post_approval_correction = _correct_field(
+        client,
+        identity_seed,
+        document_id=document_id,
+        extraction_run_id=extraction_run_id,
+        field_id=UUID(total_field["id"]),
+        normalized_value="103.00",
+        request_id="req-phase5-correction-after-approval",
+    )
+    assert post_approval_correction.status_code == 409
+    assert post_approval_correction.json()["error"]["code"] == "approved_record_locked"
+
     stale_document, stale_extraction, stale_decision, stale_payload = _create_decision(
         client,
         identity_seed,

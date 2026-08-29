@@ -39,6 +39,7 @@ from ledgerpilot.persistence.models.extraction import (
 from ledgerpilot.persistence.repositories.clients import ClientRepository
 from ledgerpilot.persistence.repositories.documents import DocumentRepository
 from ledgerpilot.persistence.repositories.extraction import ExtractionRepository
+from ledgerpilot.persistence.repositories.review import ReviewRepository
 from ledgerpilot.storage.protocol import DocumentStorage, StorageError
 
 logger = logging.getLogger(__name__)
@@ -60,6 +61,7 @@ class ExtractionService:
         self._clients = ClientRepository(session)
         self._documents = DocumentRepository(session)
         self._extractions = ExtractionRepository(session)
+        self._reviews = ReviewRepository(session)
         self._audit = AuditService(session)
 
     def start_extraction(
@@ -334,6 +336,29 @@ class ExtractionService:
                 code="invalid_correction",
                 message="Correction value is invalid.",
             ) from exc
+
+        locked_run = self._extractions.lock_run_for_document(
+            firm_id=principal.firm_id,
+            client_id=client_id,
+            document_id=document_id,
+            run_id=run_id,
+        )
+        if locked_run is None:
+            raise ApiError(status_code=404, code="not_found", message="Not found.")
+        if self._reviews.has_approved_outcome_for_extraction(
+            firm_id=principal.firm_id,
+            client_id=client_id,
+            document_id=document_id,
+            extraction_run_id=run_id,
+        ):
+            raise ApiError(
+                status_code=409,
+                code="approved_record_locked",
+                message=(
+                    "Approved accounting evidence requires a controlled correction, "
+                    "reversal, or supersession workflow."
+                ),
+            )
 
         locked_field = self._extractions.lock_field_for_correction(
             firm_id=principal.firm_id,
