@@ -2,7 +2,11 @@
 
 The roadmap is provisional and must adapt to practitioner interviews, technical discovery, and independent review. Future phases are not complete.
 
+**Current development phase: Phase 6 — Bank Reconciliation.**
+
 ## 1. Repository Bootstrap
+
+Status: Complete.
 
 Objective: establish the public GitHub repository baseline.
 
@@ -27,6 +31,8 @@ Dependencies:
 - GitHub repository and local clone.
 
 ## 2. Phase 0: Foundation and Discovery
+
+Status: Complete.
 
 Objective: document the product foundation, controls, architecture direction, and minimal tooling.
 
@@ -168,7 +174,7 @@ Dependencies:
 
 ## 6. Phase 4: Accounting Decision Engine
 
-Status: In development on `review/phase-04-accounting-decision-engine`.
+Status: Complete and merged into `main` after CI and independent review.
 
 Objective: recommend accounting treatment using deterministic rules and reviewable provider-independent recommendations.
 
@@ -206,6 +212,8 @@ Dependencies:
 
 ## 7. Phase 5: Human Review
 
+Status: Complete and merged into `main` after backend hardening, frontend implementation, CI/PPO validation, and independent review.
+
 Objective: implement accountant review, senior escalation, approval, rejection, correction, comments, information requests, and audit history.
 
 Deliverables:
@@ -215,12 +223,17 @@ Deliverables:
 - Senior-review routing.
 - Controlled correction before approval.
 - Audit history views.
+- Client submitter information-response workflow.
+- Phase 5 Next.js Human Review Workspace and Client Submitter Portal.
+- Post-approval extraction-evidence lock requiring future controlled correction/reversal/supersession instead of direct mutation.
 
 Exit criteria:
 
 - High-risk work routes to senior review.
 - Approved records cannot be silently overwritten.
 - Corrections produce history.
+- Live frontend authority fails closed and is derived from backend context.
+- Reviewer/client/auditor UI boundaries follow Phase 5 RBAC.
 
 Risks:
 
@@ -234,6 +247,8 @@ Dependencies:
 
 ## 8. Phase 6: Bank Reconciliation
 
+Status: In development on `review/phase-06-bank-reconciliation-foundation`.
+
 Objective: support controlled bank-transaction matching workflows.
 
 Deliverables:
@@ -243,10 +258,21 @@ Deliverables:
 - Review and approval workflow.
 - Reconciliation audit history.
 
+Initial development sequence:
+
+1. Provider-independent domain types and deterministic candidate matching.
+2. Persistence, migrations, tenant ownership, and cross-import idempotency constraints.
+3. Reconciliation API and RBAC contract.
+4. Human review/dispute/approval outcomes and audit persistence.
+5. Reconciliation frontend workspace against the approved API contract.
+6. Dedicated browser/end-to-end testing after the Phase 6 backend/frontend contract stabilizes.
+
 Exit criteria:
 
 - Reconciliation matches require review.
 - Unmatched and disputed transactions are visible.
+- No candidate score can autonomously create a terminal reconciliation outcome.
+- Tenant/client ownership and duplicate-prevention invariants are tested.
 
 Risks:
 
