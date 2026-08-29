@@ -100,9 +100,7 @@ def test_initial_migration_upgrade_downgrade_and_schema(
     try:
         tables = set(inspect(engine).get_table_names())
         assert tables == EXPECTED_PHASE_5_TABLES
-        review_columns = {
-            column["name"] for column in inspect(engine).get_columns("review_tasks")
-        }
+        review_columns = {column["name"] for column in inspect(engine).get_columns("review_tasks")}
         assert "risk_class" in review_columns
     finally:
         engine.dispose()
@@ -112,9 +110,7 @@ def test_initial_migration_upgrade_downgrade_and_schema(
     try:
         tables_after_completion_downgrade = set(inspect(engine).get_table_names())
         assert tables_after_completion_downgrade == EXPECTED_PHASE_5_FIRST_SLICE_TABLES
-        review_columns = {
-            column["name"] for column in inspect(engine).get_columns("review_tasks")
-        }
+        review_columns = {column["name"] for column in inspect(engine).get_columns("review_tasks")}
         assert "risk_class" not in review_columns
     finally:
         engine.dispose()

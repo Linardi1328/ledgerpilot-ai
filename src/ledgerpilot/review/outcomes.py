@@ -71,12 +71,15 @@ class ReviewOutcomeService(ReviewServiceSupport):
                 code="invalid_review_task_state",
                 message="Review task cannot be approved from its current state.",
             )
-        if self._reviews.get_outcome_for_task(
-            firm_id=task.firm_id,
-            client_id=task.client_id,
-            decision_run_id=task.decision_run_id,
-            review_task_id=task.id,
-        ) is not None:
+        if (
+            self._reviews.get_outcome_for_task(
+                firm_id=task.firm_id,
+                client_id=task.client_id,
+                decision_run_id=task.decision_run_id,
+                review_task_id=task.id,
+            )
+            is not None
+        ):
             raise ApiError(
                 status_code=409,
                 code="review_outcome_exists",
@@ -163,9 +166,7 @@ class ReviewOutcomeService(ReviewServiceSupport):
             )
 
         outcome_type = (
-            ReviewOutcomeType.CORRECTED_AND_APPROVED
-            if corrections
-            else ReviewOutcomeType.APPROVED
+            ReviewOutcomeType.CORRECTED_AND_APPROVED if corrections else ReviewOutcomeType.APPROVED
         )
         outcome = ReviewOutcome(
             id=uuid.uuid4(),
@@ -237,12 +238,15 @@ class ReviewOutcomeService(ReviewServiceSupport):
                 code="rejection_reason_required",
                 message="A rejection reason is required.",
             )
-        if self._reviews.get_outcome_for_task(
-            firm_id=task.firm_id,
-            client_id=task.client_id,
-            decision_run_id=task.decision_run_id,
-            review_task_id=task.id,
-        ) is not None:
+        if (
+            self._reviews.get_outcome_for_task(
+                firm_id=task.firm_id,
+                client_id=task.client_id,
+                decision_run_id=task.decision_run_id,
+                review_task_id=task.id,
+            )
+            is not None
+        ):
             raise ApiError(
                 status_code=409,
                 code="review_outcome_exists",

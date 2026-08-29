@@ -85,8 +85,7 @@ def test_ordinary_review_is_human_approved_and_immutable(
         AuditEventType.REVIEW_TASK_APPROVED.value,
     ]
     assert all(
-        "Synthetic ordinary human approval." not in str(event.metadata_json)
-        for event in events
+        "Synthetic ordinary human approval." not in str(event.metadata_json) for event in events
     )
 
     second_approval = client.post(
@@ -186,12 +185,8 @@ def test_high_risk_review_requires_assigned_senior_approval(
     )
     assert history.status_code == 200
     assert history.json()["comments"][0]["kind"] == "escalation_reason"
-    assert history.json()["comments"][0]["body"] == (
-        "Synthetic duplicate requires senior review."
-    )
-    assert {
-        event["event_type"] for event in history.json()["audit_events"]
-    } >= {
+    assert history.json()["comments"][0]["body"] == ("Synthetic duplicate requires senior review.")
+    assert {event["event_type"] for event in history.json()["audit_events"]} >= {
         AuditEventType.REVIEW_TASK_CREATED.value,
         AuditEventType.REVIEW_TASK_ESCALATED.value,
         AuditEventType.REVIEW_TASK_APPROVED.value,
@@ -352,9 +347,7 @@ def test_information_exchange_is_client_scoped_and_audit_metadata_is_safe(
     )
     assert visible_request.status_code == 200
     assert visible_request.json()["kind"] == "information_request"
-    assert visible_request.json()["body"] == (
-        "Please confirm the synthetic supporting reference."
-    )
+    assert visible_request.json()["body"] == ("Please confirm the synthetic supporting reference.")
     blocked = client.post(
         f"{review_url}/{task_id}/approve",
         headers=_auth_headers(identity_seed),
@@ -400,8 +393,7 @@ def test_information_exchange_is_client_scoped_and_audit_metadata_is_safe(
         "comment",
     ]
     audit_text = " ".join(
-        str(event.metadata_json)
-        for event in _review_events(db_session, identity_seed, task_id)
+        str(event.metadata_json) for event in _review_events(db_session, identity_seed, task_id)
     )
     assert "Please confirm the synthetic supporting reference." not in audit_text
     assert "Confirmed against the synthetic support document." not in audit_text
