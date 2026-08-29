@@ -68,8 +68,7 @@ def create_synthetic_bank_import(
         created=result.created,
         batch=BankImportBatchResponse.from_record(result.batch),
         transactions=[
-            BankTransactionResponse.from_record(transaction)
-            for transaction in result.transactions
+            BankTransactionResponse.from_record(transaction) for transaction in result.transactions
         ],
     )
 
@@ -197,7 +196,4 @@ def list_reconciliation_candidates(
         bank_transaction_id=bank_transaction_id,
         match_run_id=match_run_id,
     )
-    return [
-        ReconciliationCandidateResponse.from_record(candidate)
-        for candidate in candidates
-    ]
+    return [ReconciliationCandidateResponse.from_record(candidate) for candidate in candidates]
