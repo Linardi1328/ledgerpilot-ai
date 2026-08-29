@@ -145,6 +145,28 @@ class ReviewRepository:
         )
         return self._session.scalar(statement)
 
+    def list_approved_outcomes_for_client(
+        self,
+        *,
+        firm_id: UUID,
+        client_id: UUID,
+    ) -> list[ReviewOutcome]:
+        statement = (
+            select(ReviewOutcome)
+            .where(
+                ReviewOutcome.firm_id == firm_id,
+                ReviewOutcome.client_id == client_id,
+                ReviewOutcome.outcome_type.in_(
+                    (
+                        ReviewOutcomeType.APPROVED.value,
+                        ReviewOutcomeType.CORRECTED_AND_APPROVED.value,
+                    )
+                ),
+            )
+            .order_by(ReviewOutcome.created_at.asc(), ReviewOutcome.id.asc())
+        )
+        return list(self._session.scalars(statement))
+
     def has_approved_outcome_for_extraction(
         self,
         *,

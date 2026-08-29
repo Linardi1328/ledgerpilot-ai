@@ -239,6 +239,14 @@ class ReviewOutcome(Base):
             name="fk_review_outcomes_journal_scope",
         ),
         UniqueConstraint("review_task_id", name="uq_review_outcomes_review_task"),
+        UniqueConstraint(
+            "id",
+            "firm_id",
+            "client_id",
+            "decision_run_id",
+            "document_id",
+            name="uq_review_outcomes_id_scope",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
