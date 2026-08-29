@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Modal } from "../ui/Modal";
 import { ExtractedFieldResponse, ExtractionFieldCorrectionRequest } from "@/types/api";
+import { getFriendlyErrorMessage } from "@/lib/api/errors";
 import { Edit3 } from "lucide-react";
 
 export function CorrectionDialog({
@@ -52,7 +53,7 @@ export function CorrectionDialog({
       });
       onClose();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Field correction failed.");
+      setError(getFriendlyErrorMessage(err));
     } finally {
       setIsSubmitting(false);
     }

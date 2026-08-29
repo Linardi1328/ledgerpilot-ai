@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback, use } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/context/AuthContext";
 import { Role } from "@/types/roles";
 import {
@@ -18,15 +19,17 @@ import { defaultApiClient } from "@/lib/api/client";
 import {
   addReviewComment,
   approveReviewTask,
+  createReviewTask,
   escalateReviewTask,
   fetchReviewHistory,
   fetchReviewTask,
   rejectReviewTask,
   requestInformation,
 } from "@/lib/api/reviews";
-import { fetchAccountingDecisionRun } from "@/lib/api/accounting";
+import { createAccountingDecisionRun, fetchAccountingDecisionRun } from "@/lib/api/accounting";
 import { addFieldCorrection, fetchExtractionRun } from "@/lib/api/extractions";
 import { fetchDocumentMetadata } from "@/lib/api/documents";
+import { buildLiveReviewTaskUrl } from "@/lib/api/lineage";
 import { canCorrectField, isTerminalTask } from "@/lib/policy/action-policy";
 import { LineageHeader } from "@/components/workspace/LineageHeader";
 import { RiskStatusBanner } from "@/components/workspace/RiskStatusBanner";
@@ -47,6 +50,7 @@ import { RejectDialog } from "@/components/dialogs/RejectDialog";
 import { CorrectionDialog } from "@/components/dialogs/CorrectionDialog";
 import { StaleDecisionDialog } from "@/components/dialogs/StaleDecisionDialog";
 import { AlertCircle, Eye } from "lucide-react";
+import { ApiError } from "@/lib/api/errors";
 
 interface WorkspaceParams {
   clientId: string;
@@ -62,7 +66,8 @@ export default function ReviewWorkspacePage({
   params: Promise<WorkspaceParams>;
 }) {
   const params = use(paramsPromise);
-  const { mode, role, principal, devSubject, firmId } = useAuth();
+  const router = useRouter();
+  const { mode, effectiveRole, effectivePrincipal, devSubject, firmId, connectionStatus } = useAuth();
 
   const lineage: ReviewTaskLineage = React.useMemo(() => ({
     clientId: params.clientId,
@@ -93,6 +98,16 @@ export default function ReviewWorkspacePage({
 
   // Load Data
   const loadData = useCallback(async () => {
+    // If not authorized to view review workspace, skip fetch
+    if (
+      effectiveRole === Role.CLIENT_SUBMITTER ||
+      effectiveRole === Role.FIRM_ADMIN ||
+      (mode === "live" && effectiveRole === null)
+    ) {
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setFetchError(null);
 
@@ -104,7 +119,6 @@ export default function ReviewWorkspacePage({
         setExtraction(scenario.extraction);
         setDocumentMeta(scenario.document);
         setHistory(scenario.history);
-        setIsStale(false);
       } catch (err: unknown) {
         setFetchError(err instanceof Error ? err.message : "Scenario not found in mock store.");
       } finally {
@@ -145,16 +159,13 @@ export default function ReviewWorkspacePage({
       setExtraction(fetchedExtraction);
       setDocumentMeta(fetchedDoc);
       setHistory(fetchedHist);
-
-      // Check if newer extraction corrections make this decision stale
-      const hasNewerCorrection = fetchedExtraction.fields.some((f) => f.corrected);
-      setIsStale(hasNewerCorrection);
+      // Corrected fields alone do NOT make the decision stale on initial load.
     } catch (err: unknown) {
       setFetchError(err instanceof Error ? err.message : "Failed to load live review workspace.");
     } finally {
       setIsLoading(false);
     }
-  }, [mode, lineage, devSubject, firmId]);
+  }, [mode, effectiveRole, lineage, devSubject, firmId]);
 
   useEffect(() => {
     loadData();
@@ -162,21 +173,29 @@ export default function ReviewWorkspacePage({
 
   // Mutation Handlers
   const handleApprove = async (note?: string) => {
-    if (mode === "mock") {
-      const res = mockDataStore.approve(lineage, note, principal || undefined);
-      setTask({ ...res.task });
-      setHistory({ ...mockDataStore.getHistory(lineage) });
-      return;
-    }
+    try {
+      if (mode === "mock") {
+        const res = mockDataStore.approve(lineage, note, effectivePrincipal || undefined);
+        setTask({ ...res.task });
+        setHistory({ ...mockDataStore.getHistory(lineage) });
+        return;
+      }
 
-    const res = await approveReviewTask(lineage, note, defaultApiClient, { devSubject, firmId });
-    setTask({ ...res.task });
-    await loadData();
+      const res = await approveReviewTask(lineage, note, defaultApiClient, { devSubject, firmId });
+      setTask({ ...res.task });
+      await loadData();
+    } catch (err: unknown) {
+      if (err instanceof ApiError && err.code === "decision_stale_after_correction") {
+        setIsStale(true);
+        setShowStaleDialog(true);
+      }
+      throw err;
+    }
   };
 
   const handleEscalate = async (seniorMembershipId: string, reason: string) => {
     if (mode === "mock") {
-      const updatedTask = mockDataStore.escalate(lineage, seniorMembershipId, reason, principal || undefined);
+      const updatedTask = mockDataStore.escalate(lineage, seniorMembershipId, reason, effectivePrincipal || undefined);
       setTask({ ...updatedTask });
       setHistory({ ...mockDataStore.getHistory(lineage) });
       return;
@@ -195,7 +214,7 @@ export default function ReviewWorkspacePage({
 
   const handleRequestInfo = async (question: string) => {
     if (mode === "mock") {
-      const res = mockDataStore.requestInfo(lineage, question, principal || undefined);
+      const res = mockDataStore.requestInfo(lineage, question, effectivePrincipal || undefined);
       setTask({ ...res.task });
       setHistory({ ...mockDataStore.getHistory(lineage) });
       return;
@@ -211,7 +230,7 @@ export default function ReviewWorkspacePage({
 
   const handleReject = async (reason: string) => {
     if (mode === "mock") {
-      const res = mockDataStore.reject(lineage, reason, principal || undefined);
+      const res = mockDataStore.reject(lineage, reason, effectivePrincipal || undefined);
       setTask({ ...res.task });
       setHistory({ ...mockDataStore.getHistory(lineage) });
       return;
@@ -224,7 +243,7 @@ export default function ReviewWorkspacePage({
 
   const handleAddComment = async (body: string) => {
     if (mode === "mock") {
-      mockDataStore.addComment(lineage, body, principal || undefined);
+      mockDataStore.addComment(lineage, body, effectivePrincipal || undefined);
       setHistory({ ...mockDataStore.getHistory(lineage) });
       return;
     }
@@ -240,6 +259,7 @@ export default function ReviewWorkspacePage({
     if (mode === "mock") {
       mockDataStore.addCorrection(lineage, fieldId, req);
       setExtraction({ ...mockDataStore.getExtraction(lineage) });
+      // Correction performed in current session makes current decision stale
       setIsStale(true);
       return;
     }
@@ -253,17 +273,75 @@ export default function ReviewWorkspacePage({
       defaultApiClient,
       { devSubject, firmId }
     );
+    // Correction performed in current session makes current decision stale
     setIsStale(true);
     await loadData();
   };
 
-  const handleGenerateFreshDecision = async () => {
-    // Revalidates or re-runs accounting decision
-    await loadData();
+  const handleGenerateFreshDecision = async (setStep: (step: string) => void) => {
+    if (mode === "mock") {
+      setStep("1/3: Evaluating fresh deterministic decision...");
+      await new Promise((r) => setTimeout(r, 200));
+      setStep("2/3: Initializing new review task...");
+      const res = mockDataStore.generateFreshDecisionAndTask(lineage, effectivePrincipal || undefined);
+      setStep("3/3: Redirecting to fresh review task...");
+      await new Promise((r) => setTimeout(r, 200));
+      router.push(buildLiveReviewTaskUrl(res.newLineage));
+      return;
+    }
+
+    setStep("1/3: Generating fresh accounting decision run from corrected source...");
+    const freshDecision = await createAccountingDecisionRun(
+      lineage.clientId,
+      lineage.documentId,
+      lineage.extractionRunId,
+      defaultApiClient,
+      { devSubject, firmId }
+    );
+
+    setStep("2/3: Creating new review task for fresh decision...");
+    const freshTask = await createReviewTask(
+      {
+        clientId: lineage.clientId,
+        documentId: lineage.documentId,
+        extractionRunId: lineage.extractionRunId,
+        decisionRunId: freshDecision.id,
+      },
+      effectivePrincipal?.membership_id,
+      defaultApiClient,
+      { devSubject, firmId }
+    );
+
+    setStep("3/3: Redirecting to new review task...");
+    const freshUrl = buildLiveReviewTaskUrl({
+      clientId: lineage.clientId,
+      documentId: lineage.documentId,
+      extractionRunId: lineage.extractionRunId,
+      decisionRunId: freshDecision.id,
+      reviewTaskId: freshTask.id,
+    });
+
+    router.push(freshUrl);
   };
 
   // Role Access Isolation Guards
-  if (role === Role.CLIENT_SUBMITTER) {
+  if (mode === "live" && (effectiveRole === null || connectionStatus !== "connected")) {
+    return (
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-8 text-center space-y-4 max-w-xl mx-auto shadow-2xl">
+        <div className="w-12 h-12 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center mx-auto text-amber-400">
+          <AlertCircle className="w-6 h-6" />
+        </div>
+        <h2 className="font-bold text-base text-slate-100">Review Workspace Locked</h2>
+        <p className="text-xs text-slate-300 leading-relaxed">
+          {connectionStatus === "unauthenticated"
+            ? "Authentication required to access review tasks."
+            : "The FastAPI backend server is unreachable. Live mode has failed closed to protect accounting integrity."}
+        </p>
+      </div>
+    );
+  }
+
+  if (effectiveRole === Role.CLIENT_SUBMITTER) {
     return (
       <div className="bg-slate-900 border border-purple-900/60 rounded-xl p-8 text-center space-y-4 max-w-xl mx-auto shadow-2xl">
         <div className="w-12 h-12 rounded-full bg-purple-950 border border-purple-800 flex items-center justify-center mx-auto text-purple-400">
@@ -277,7 +355,7 @@ export default function ReviewWorkspacePage({
     );
   }
 
-  if (role === Role.FIRM_ADMIN) {
+  if (effectiveRole === Role.FIRM_ADMIN) {
     return (
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-8 text-center space-y-4 max-w-xl mx-auto shadow-2xl">
         <div className="w-12 h-12 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center mx-auto text-slate-400">
@@ -315,9 +393,9 @@ export default function ReviewWorkspacePage({
     );
   }
 
-  const isAuditor = role === Role.AUDITOR;
+  const isAuditor = effectiveRole === Role.AUDITOR;
   const isTerminal = isTerminalTask(task);
-  const allowCorrection = canCorrectField(principal, task);
+  const allowCorrection = canCorrectField(effectivePrincipal, task);
 
   return (
     <div className="space-y-4 text-slate-100">
@@ -408,7 +486,7 @@ export default function ReviewWorkspacePage({
           <ActionBar
             task={task}
             journal={decision?.proposed_journal}
-            principal={principal}
+            principal={effectivePrincipal}
             isStale={isStale}
             onOpenApprove={() => setShowApproveDialog(true)}
             onOpenEscalate={() => setShowEscalateDialog(true)}
@@ -424,7 +502,7 @@ export default function ReviewWorkspacePage({
         onClose={() => setShowApproveDialog(false)}
         task={task}
         journal={decision?.proposed_journal || null}
-        principal={principal}
+        principal={effectivePrincipal}
         onConfirmApprove={handleApprove}
       />
 

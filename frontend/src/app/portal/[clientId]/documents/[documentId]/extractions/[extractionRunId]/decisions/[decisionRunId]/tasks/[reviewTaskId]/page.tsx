@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback, use } from "react";
 import { useAuth } from "@/lib/context/AuthContext";
+import { Role } from "@/types/roles";
 import {
   DocumentMetadataResponse,
   ReviewCommentResponse,
@@ -16,6 +17,7 @@ import {
 import { fetchDocumentMetadata } from "@/lib/api/documents";
 import { PortalCard, PortalSuccess } from "@/components/client-portal/PortalCard";
 import { useRouter } from "next/navigation";
+import { AlertCircle } from "lucide-react";
 
 interface PortalParams {
   clientId: string;
@@ -32,7 +34,7 @@ export default function ClientSubmitterPortalPage({
 }) {
   const params = use(paramsPromise);
   const router = useRouter();
-  const { mode, devSubject, firmId } = useAuth();
+  const { mode, effectiveRole, devSubject, firmId, connectionStatus } = useAuth();
 
   const lineage: ReviewTaskLineage = React.useMemo(() => ({
     clientId: params.clientId,
@@ -49,6 +51,12 @@ export default function ClientSubmitterPortalPage({
   const [isSuccess, setIsSuccess] = useState(false);
 
   const loadPortalData = useCallback(async () => {
+    // If not a Client Submitter, do not fetch
+    if (effectiveRole !== Role.CLIENT_SUBMITTER) {
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -59,7 +67,6 @@ export default function ClientSubmitterPortalPage({
         const outstanding = mockDataStore.getOutstandingInfoRequest(lineage);
         setInquiry(outstanding);
       } catch {
-        // May not have an outstanding request yet; provide fallback or null
         setInquiry(null);
       } finally {
         setIsLoading(false);
@@ -86,7 +93,7 @@ export default function ClientSubmitterPortalPage({
     } finally {
       setIsLoading(false);
     }
-  }, [mode, lineage, devSubject, firmId]);
+  }, [mode, effectiveRole, lineage, devSubject, firmId]);
 
   useEffect(() => {
     loadPortalData();
@@ -105,6 +112,37 @@ export default function ClientSubmitterPortalPage({
     });
     setIsSuccess(true);
   };
+
+  // Route-Level Authority Guard
+  if (mode === "live" && (effectiveRole === null || connectionStatus !== "connected")) {
+    return (
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-8 text-center space-y-4 max-w-xl mx-auto shadow-2xl">
+        <div className="w-12 h-12 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center mx-auto text-amber-400">
+          <AlertCircle className="w-6 h-6" />
+        </div>
+        <h2 className="font-bold text-base text-slate-100">Portal Access Locked</h2>
+        <p className="text-xs text-slate-300 leading-relaxed">
+          {connectionStatus === "unauthenticated"
+            ? "Authentication required to access client portal inquiries."
+            : "The FastAPI backend server is unreachable. Live mode failed closed."}
+        </p>
+      </div>
+    );
+  }
+
+  if (effectiveRole !== Role.CLIENT_SUBMITTER) {
+    return (
+      <div className="bg-slate-900 border border-purple-900/60 rounded-xl p-8 text-center space-y-4 max-w-xl mx-auto shadow-2xl">
+        <div className="w-12 h-12 rounded-full bg-purple-950 border border-purple-800 flex items-center justify-center mx-auto text-purple-400">
+          <AlertCircle className="w-6 h-6" />
+        </div>
+        <h2 className="font-bold text-base text-slate-100">Restricted Submitter Access</h2>
+        <p className="text-xs text-slate-300 leading-relaxed">
+          Your current verified role is not authorized to access the Client Information Portal. This route requires an authenticated <strong>Client Submitter</strong> principal.
+        </p>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

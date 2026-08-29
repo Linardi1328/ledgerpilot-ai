@@ -5,11 +5,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Role } from "@/types/roles";
 import { useAuth } from "@/lib/context/AuthContext";
-import { FileText, Inbox, ShieldCheck, UploadCloud, Settings } from "lucide-react";
+import { FileText, Inbox, ShieldCheck, UploadCloud, Settings, AlertCircle } from "lucide-react";
 
 export function Navbar() {
   const pathname = usePathname();
-  const { role } = useAuth();
+  const { effectiveRole, mode, connectionStatus } = useAuth();
 
   const isActive = (path: string) => {
     if (path === "/" && pathname === "/") return true;
@@ -17,8 +17,22 @@ export function Navbar() {
     return false;
   };
 
-  // 1. Client Submitter: STRICT ISOLATION to portal
-  if (role === Role.CLIENT_SUBMITTER) {
+  // 1. Unauthenticated or Live Backend Unavailable: Fail closed presentation
+  if (mode === "live" && (effectiveRole === null || connectionStatus !== "connected")) {
+    return (
+      <nav className="bg-slate-950/70 border-b border-slate-800 px-5 py-2.5 flex items-center space-x-3 text-xs" aria-label="Disconnected Navigation">
+        <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+        <span className="text-slate-400">
+          {connectionStatus === "unauthenticated"
+            ? "Authentication required. Review navigation is locked until credentials are authenticated."
+            : "Backend offline. Live mode failed closed — no synthetic authority active."}
+        </span>
+      </nav>
+    );
+  }
+
+  // 2. Client Submitter: STRICT ISOLATION to portal
+  if (effectiveRole === Role.CLIENT_SUBMITTER) {
     return (
       <nav className="bg-slate-950/70 border-b border-slate-800 px-5 flex items-center space-x-6 text-xs font-medium" aria-label="Submitter Navigation">
         <Link
@@ -51,8 +65,8 @@ export function Navbar() {
     );
   }
 
-  // 2. Firm Administrator: Shows workspace admin scope (no accounting review authority)
-  if (role === Role.FIRM_ADMIN) {
+  // 3. Firm Administrator: Shows workspace admin scope (no accounting review authority)
+  if (effectiveRole === Role.FIRM_ADMIN) {
     return (
       <nav className="bg-slate-950/70 border-b border-slate-800 px-5 flex items-center space-x-6 text-xs font-medium" aria-label="Admin Navigation">
         <div className="py-2.5 border-b-2 border-slate-500 text-slate-300 flex items-center space-x-2">
@@ -74,7 +88,7 @@ export function Navbar() {
     );
   }
 
-  // 3. Reviewers (Accountant, Senior Reviewer, Auditor)
+  // 4. Reviewers (Accountant, Senior Reviewer, Auditor)
   return (
     <nav className="bg-slate-950/70 border-b border-slate-800 px-5 flex items-center space-x-6 text-xs font-medium" aria-label="Reviewer Navigation">
       <Link

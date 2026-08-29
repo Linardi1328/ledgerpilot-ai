@@ -5,14 +5,36 @@ import Link from "next/link";
 import { useAuth } from "@/lib/context/AuthContext";
 import { Role } from "@/types/roles";
 import { ALL_SCENARIOS } from "@/lib/mock/fixtures";
-import { buildLivePortalUrl, buildLiveReviewTaskUrl } from "@/lib/api/lineage";
-import { FileText, Inbox, ShieldCheck, UploadCloud, ArrowRight } from "lucide-react";
+import { buildLiveReviewTaskUrl } from "@/lib/api/lineage";
+import { FileText, Inbox, ShieldCheck, UploadCloud, ArrowRight, AlertCircle } from "lucide-react";
 import { RiskBadge, StatusBadge } from "@/components/ui/Badge";
 
 export default function HomePage() {
-  const { role } = useAuth();
+  const { effectiveRole, mode, connectionStatus } = useAuth();
 
-  if (role === Role.CLIENT_SUBMITTER) {
+  if (mode === "live" && (effectiveRole === null || connectionStatus !== "connected")) {
+    return (
+      <div className="space-y-6 max-w-4xl mx-auto">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-3 shadow-xl">
+          <div className="flex items-center space-x-2 text-amber-400 font-bold text-lg">
+            <AlertCircle className="w-5 h-5" />
+            <span>
+              {connectionStatus === "unauthenticated"
+                ? "Authentication Required"
+                : "Live Backend Offline"}
+            </span>
+          </div>
+          <p className="text-xs text-slate-300">
+            {connectionStatus === "unauthenticated"
+              ? "Your session is unauthenticated. Please configure development credentials or switch to Mock Demo mode."
+              : "Live mode failed closed: Could not connect to the FastAPI backend. Switch to Mock Demo mode in the header to inspect synthetic scenarios."}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (effectiveRole === Role.CLIENT_SUBMITTER) {
     return (
       <div className="space-y-6 max-w-4xl mx-auto">
         <div className="bg-slate-900 border border-purple-900/60 rounded-xl p-6 space-y-3 shadow-xl">
@@ -37,7 +59,7 @@ export default function HomePage() {
     );
   }
 
-  if (role === Role.FIRM_ADMIN) {
+  if (effectiveRole === Role.FIRM_ADMIN) {
     return (
       <div className="space-y-6 max-w-4xl mx-auto">
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-3 shadow-xl">

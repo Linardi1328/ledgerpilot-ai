@@ -13,9 +13,11 @@ export type BackendConnectionStatus = "connected" | "connecting" | "unavailable"
 interface AuthContextType {
   mode: OperatingMode;
   setMode: (mode: OperatingMode) => void;
-  role: Role;
+  role: Role; // Selected simulator role in the UI header
   setRole: (role: Role) => void;
-  principal: Principal | null;
+  principal: Principal | null; // Authoritative principal
+  effectiveRole: Role | null; // Verified role (server-authoritative in live mode)
+  effectivePrincipal: Principal | null; // Verified principal (null in live mode when unauthenticated/unavailable)
   devSubject: string;
   firmId: string;
   connectionStatus: BackendConnectionStatus;
@@ -26,11 +28,11 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [mode, setMode] = useState<OperatingMode>("mock");
+  const [mode, setModeState] = useState<OperatingMode>("mock");
   const [role, setRoleState] = useState<Role>(Role.ACCOUNTANT);
-  const [principal, setPrincipal] = useState<Principal | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<BackendConnectionStatus>("connecting");
-  const [isLoading, setIsLoading] = useState(true);
+  const [principal, setPrincipal] = useState<Principal | null>(() => mockDataStore.getPrincipal(Role.ACCOUNTANT));
+  const [connectionStatus, setConnectionStatus] = useState<BackendConnectionStatus>("connected");
+  const [isLoading, setIsLoading] = useState(false);
 
   // Active Dev Subject & Firm ID
   const devUser = Object.values(DEV_USERS).find((u) => u.role === role) || DEV_USERS.accountant;
@@ -48,7 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Live Mode: Probe backend liveness and context
+    // Live Mode: Must fail closed. Only /api/v1/context establishes active principal.
     try {
       await checkLiveness(defaultApiClient);
       const contextData = await fetchContext(defaultApiClient, {
@@ -78,8 +80,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
       setConnectionStatus("unavailable");
-      // Fall back to mock principal for graceful inspection while backend is offline
-      setPrincipal(mockDataStore.getPrincipal(role));
+      // FAIL CLOSED: Never fall back to a mock principal in live mode!
+      setPrincipal(null);
     } finally {
       setIsLoading(false);
     }
@@ -91,8 +93,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const setRole = (newRole: Role) => {
     setRoleState(newRole);
-    mockDataStore.setRole(newRole);
+    if (mode === "mock") {
+      mockDataStore.setRole(newRole);
+      setPrincipal(mockDataStore.getPrincipal(newRole));
+    }
   };
+
+  const setMode = (newMode: OperatingMode) => {
+    setModeState(newMode);
+    if (newMode === "mock") {
+      mockDataStore.setRole(role);
+      setPrincipal(mockDataStore.getPrincipal(role));
+      setConnectionStatus("connected");
+    } else {
+      setPrincipal(null);
+      setConnectionStatus("connecting");
+    }
+  };
+
+  // Normalized Authoritative Principal & Role
+  const effectivePrincipal = mode === "mock" ? principal : principal;
+  const effectiveRole = mode === "mock" ? role : (principal ? principal.role : null);
 
   return (
     <AuthContext.Provider
@@ -102,6 +123,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         role,
         setRole,
         principal,
+        effectiveRole,
+        effectivePrincipal,
         devSubject,
         firmId,
         connectionStatus,

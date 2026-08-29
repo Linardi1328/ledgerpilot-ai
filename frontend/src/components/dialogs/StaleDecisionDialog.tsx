@@ -11,19 +11,21 @@ export function StaleDecisionDialog({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  onGenerateFreshDecision: () => Promise<void>;
+  onGenerateFreshDecision: (setStep: (step: string) => void) => Promise<void>;
 }) {
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const [currentStep, setCurrentStep] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleRegenerate = async () => {
     try {
       setIsRegenerating(true);
       setError(null);
-      await onGenerateFreshDecision();
+      await onGenerateFreshDecision((step) => setCurrentStep(step));
       onClose();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to regenerate accounting decision.");
+      setError(err instanceof Error ? err.message : "Failed to generate fresh accounting decision.");
+      setCurrentStep(null);
     } finally {
       setIsRegenerating(false);
     }
@@ -43,8 +45,15 @@ export function StaleDecisionDialog({
         </div>
 
         <p className="text-slate-300">
-          Because extracted source fields were corrected, the existing journal and risk classification must be re-evaluated deterministically.
+          Because extracted source fields were corrected, the existing journal and risk classification must be re-evaluated deterministically. This workflow will create a new accounting decision run and review task.
         </p>
+
+        {currentStep && (
+          <div className="bg-slate-950 p-2.5 rounded border border-slate-800 font-mono text-[11px] text-blue-400 flex items-center space-x-2">
+            <span className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin shrink-0" />
+            <span>{currentStep}</span>
+          </div>
+        )}
 
         {error && (
           <div className="bg-rose-950/60 border border-rose-800 text-rose-300 p-2.5 rounded text-xs">
@@ -65,10 +74,10 @@ export function StaleDecisionDialog({
             type="button"
             onClick={handleRegenerate}
             disabled={isRegenerating}
-            className="px-4 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition flex items-center space-x-1.5"
+            className="px-4 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition flex items-center space-x-1.5 disabled:opacity-50"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isRegenerating ? "animate-spin" : ""}`} />
-            <span>{isRegenerating ? "Regenerating..." : "Generate Fresh Accounting Decision"}</span>
+            <span>{isRegenerating ? "Generating..." : "Generate Fresh Accounting Decision"}</span>
           </button>
         </div>
       </div>

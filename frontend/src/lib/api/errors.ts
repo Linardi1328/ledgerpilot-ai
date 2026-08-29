@@ -52,6 +52,8 @@ export function getFriendlyErrorMessage(error: unknown): string {
       return "The task is not in an appropriate state for this action.";
     case "review_task_terminal":
       return "Review task is already resolved (Approved or Rejected) and cannot be modified.";
+    case "approved_record_locked":
+      return "Approved accounting evidence is locked. This extraction is linked to an approved human review outcome. Changes require a controlled correction, reversal, or supersession workflow.";
     case "senior_review_required":
       return "This high-risk task requires review and approval by an authorized Senior Reviewer.";
     case "review_approval_blocked":

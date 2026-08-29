@@ -489,6 +489,73 @@ export class MockDataStore {
 
     return { task: scenario.task, outcome };
   }
+
+  generateFreshDecisionAndTask(
+    lineage: ReviewTaskLineage,
+    principal?: Principal
+  ): { decision: AccountingDecisionRunResponse; task: ReviewTaskResponse; newLineage: ReviewTaskLineage } {
+    const p = principal || this.getPrincipal();
+    const scenario = this.getScenario(lineage.reviewTaskId);
+
+    const newDecId = `a-fresh-${Date.now()}`;
+    const newTaskId = `r-fresh-${Date.now()}`;
+
+    const newDecision: AccountingDecisionRunResponse = {
+      ...JSON.parse(JSON.stringify(scenario.decision)),
+      id: newDecId,
+      created_at: new Date().toISOString(),
+    };
+
+    const newTask: ReviewTaskResponse = {
+      ...JSON.parse(JSON.stringify(scenario.task)),
+      id: newTaskId,
+      decision_run_id: newDecId,
+      status: ReviewTaskStatus.OPEN,
+      owner_user_id: p.user_id,
+      owner_membership_id: p.membership_id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    const newLineage: ReviewTaskLineage = {
+      clientId: lineage.clientId,
+      documentId: lineage.documentId,
+      extractionRunId: lineage.extractionRunId,
+      decisionRunId: newDecId,
+      reviewTaskId: newTaskId,
+    };
+
+    const newScenario: ScenarioBundle = {
+      key: `fresh-${Date.now()}`,
+      title: `${scenario.title} (Fresh Decision)`,
+      lineage: newLineage,
+      document: JSON.parse(JSON.stringify(scenario.document)),
+      extraction: JSON.parse(JSON.stringify(scenario.extraction)),
+      decision: newDecision,
+      task: newTask,
+      history: {
+        task: newTask,
+        comments: [],
+        outcome: null,
+        audit_events: [
+          {
+            id: `evt-${Date.now()}`,
+            actor_user_id: p.user_id,
+            event_type: "review_task_created",
+            target_type: "review_task",
+            target_id: newTaskId,
+            occurred_at: new Date().toISOString(),
+            request_id: `req-${Date.now()}`,
+            metadata: { fresh_decision_for: lineage.decisionRunId },
+          },
+        ],
+      },
+    };
+
+    this.scenarios.set(newTaskId, newScenario);
+
+    return { decision: newDecision, task: newTask, newLineage };
+  }
 }
 
 export const mockDataStore = new MockDataStore();

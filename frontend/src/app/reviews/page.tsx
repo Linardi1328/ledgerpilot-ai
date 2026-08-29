@@ -7,14 +7,34 @@ import { Role } from "@/types/roles";
 import { ALL_SCENARIOS } from "@/lib/mock/fixtures";
 import { buildLiveReviewTaskUrl } from "@/lib/api/lineage";
 import { RiskBadge, StatusBadge } from "@/components/ui/Badge";
-import { FileText, ArrowRight, Info, Search } from "lucide-react";
+import { FileText, ArrowRight, Info, Search, AlertCircle } from "lucide-react";
 
 export default function ReviewQueuePage() {
-  const { mode, role } = useAuth();
+  const { mode, effectiveRole, connectionStatus } = useAuth();
   const [filterRisk, setFilterRisk] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
-  if (role === Role.CLIENT_SUBMITTER) {
+  if (mode === "live" && (effectiveRole === null || connectionStatus !== "connected")) {
+    return (
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 text-center space-y-3">
+        <div className="flex items-center justify-center space-x-2 text-amber-400 font-bold text-base">
+          <AlertCircle className="w-5 h-5" />
+          <span>
+            {connectionStatus === "unauthenticated"
+              ? "Authentication Required"
+              : "Review Queue Unavailable (Backend Offline)"}
+          </span>
+        </div>
+        <p className="text-xs text-slate-300">
+          {connectionStatus === "unauthenticated"
+            ? "Authentication is required to inspect the review queue."
+            : "The FastAPI backend server is unreachable. Live mode has failed closed to protect accounting integrity."}
+        </p>
+      </div>
+    );
+  }
+
+  if (effectiveRole === Role.CLIENT_SUBMITTER) {
     return (
       <div className="bg-slate-900 border border-purple-900/60 rounded-xl p-6 text-center space-y-3">
         <h2 className="font-bold text-base text-slate-100">Restricted Access</h2>
@@ -31,10 +51,10 @@ export default function ReviewQueuePage() {
     );
   }
 
-  if (role === Role.FIRM_ADMIN) {
+  if (effectiveRole === Role.FIRM_ADMIN) {
     return (
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 text-center space-y-3">
-        <h2 className="font-bold text-base text-slate-100">Review Queue Unavailable</h2>
+        <h2 className="font-bold text-base text-slate-100">Review Queue Unavailable to Firm Admin</h2>
         <p className="text-xs text-slate-300">
           Firm Administrators do not hold <code>VIEW_REVIEW_TASK</code> permissions under Phase 5 RBAC. Switch to Accountant or Senior Reviewer to access review worklists.
         </p>
