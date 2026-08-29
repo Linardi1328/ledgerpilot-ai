@@ -23,12 +23,12 @@ from tests.integration.test_postgresql_reconciliation_constraints import (
     _match_run_record,
     _seed_approved_outcome,
     _transaction_record,
-    postgresql_engine,
+    postgresql_engine,  # noqa: F401 - expose the shared pytest fixture in this module
 )
 
 
 def test_postgresql_enforces_reconciliation_review_scope_and_terminal_uniqueness(
-    postgresql_engine: Engine,
+    postgresql_engine: Engine,  # noqa: F811 - pytest injects the imported fixture
 ) -> None:
     with Session(postgresql_engine, expire_on_commit=False) as session:
         seed, approved_outcome = _seed_approved_outcome(session)
