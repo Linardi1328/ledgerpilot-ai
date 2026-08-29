@@ -239,8 +239,7 @@ def get_reconciliation_review_history(
     return ReconciliationReviewHistoryResponse(
         review=ReconciliationReviewResponse.from_record(history.review),
         actions=[
-            ReconciliationReviewActionResponse.from_record(action)
-            for action in history.actions
+            ReconciliationReviewActionResponse.from_record(action) for action in history.actions
         ],
         outcome=(
             ReconciliationOutcomeResponse.from_record(history.outcome)
