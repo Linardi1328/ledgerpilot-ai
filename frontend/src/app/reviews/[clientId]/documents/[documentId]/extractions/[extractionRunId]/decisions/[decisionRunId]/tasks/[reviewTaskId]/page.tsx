@@ -30,7 +30,12 @@ import { createAccountingDecisionRun, fetchAccountingDecisionRun } from "@/lib/a
 import { addFieldCorrection, fetchExtractionRun } from "@/lib/api/extractions";
 import { fetchDocumentMetadata } from "@/lib/api/documents";
 import { buildLiveReviewTaskUrl } from "@/lib/api/lineage";
-import { canCorrectField, isTerminalTask } from "@/lib/policy/action-policy";
+import {
+  canComment,
+  canCorrectField,
+  canRegenerateAccountingDecision,
+  isTerminalTask,
+} from "@/lib/policy/action-policy";
 import { LineageHeader } from "@/components/workspace/LineageHeader";
 import { RiskStatusBanner } from "@/components/workspace/RiskStatusBanner";
 import { JournalTable } from "@/components/workspace/JournalTable";
@@ -414,6 +419,8 @@ export default function ReviewWorkspacePage({
   const isAuditor = effectiveRole === Role.AUDITOR;
   const isTerminal = isTerminalTask(task);
   const allowCorrection = canCorrectField(effectivePrincipal, task);
+  const allowRegenerate = canRegenerateAccountingDecision(effectivePrincipal);
+  const allowComment = canComment(effectivePrincipal, task);
 
   return (
     <div className="space-y-4 text-slate-100">
@@ -434,14 +441,21 @@ export default function ReviewWorkspacePage({
             <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
             <span>
               <strong>Accounting decision is out of date</strong>: Source information changed after this accounting decision was generated.
+              {!allowRegenerate && (
+                <span className="ml-1 text-amber-300">
+                  An authorized reviewer must generate a fresh decision.
+                </span>
+              )}
             </span>
           </div>
-          <button
-            onClick={() => setShowStaleDialog(true)}
-            className="px-2.5 py-1 rounded bg-amber-600 hover:bg-amber-500 text-white font-semibold text-[11px] transition"
-          >
-            Resolve Stale Decision
-          </button>
+          {allowRegenerate && (
+            <button
+              onClick={() => setShowStaleDialog(true)}
+              className="px-2.5 py-1 rounded bg-amber-600 hover:bg-amber-500 text-white font-semibold text-[11px] transition shrink-0 ml-2"
+            >
+              Resolve Stale Decision
+            </button>
+          )}
         </div>
       )}
 
@@ -487,7 +501,7 @@ export default function ReviewWorkspacePage({
           {/* Reviewer Comments Feed */}
           <CommentsFeed
             comments={history?.comments || []}
-            canAddComment={!isAuditor && !isTerminal}
+            canAddComment={allowComment}
             onAddComment={handleAddComment}
           />
 

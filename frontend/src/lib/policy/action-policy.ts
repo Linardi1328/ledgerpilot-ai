@@ -216,3 +216,19 @@ export function canCorrectField(
   }
   return principal.permissions.includes(Permission.CORRECT_EXTRACTED_INFORMATION);
 }
+
+export function canRegenerateAccountingDecision(
+  principal: Principal | null | undefined
+): boolean {
+  if (!principal) return false;
+  if (
+    principal.role !== Role.ACCOUNTANT &&
+    principal.role !== Role.SENIOR_REVIEWER
+  ) {
+    return false;
+  }
+  return (
+    principal.permissions.includes(Permission.RUN_ACCOUNTING_DECISION) &&
+    principal.permissions.includes(Permission.CREATE_REVIEW_TASK)
+  );
+}

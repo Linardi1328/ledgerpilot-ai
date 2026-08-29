@@ -5,6 +5,7 @@ import {
   canComment,
   canCorrectField,
   canEscalate,
+  canRegenerateAccountingDecision,
   canReject,
   canRequestInformation,
   canViewClientPortal,
@@ -345,6 +346,67 @@ describe("Action Policy Matrix", () => {
       expect(isTerminalTask(approvedTask)).toBe(true);
       expect(canComment(mockAccountantPrincipal, approvedTask)).toBe(false);
       expect(canCorrectField(mockAccountantPrincipal, approvedTask)).toBe(false);
+    });
+  });
+
+  describe("Fresh Decision Regeneration Policy (canRegenerateAccountingDecision)", () => {
+    const fullAccountant: Principal = {
+      ...mockAccountantPrincipal,
+      permissions: [
+        Permission.RUN_ACCOUNTING_DECISION,
+        Permission.CREATE_REVIEW_TASK,
+      ],
+    };
+
+    const fullSenior: Principal = {
+      ...mockSeniorPrincipal,
+      permissions: [
+        Permission.RUN_ACCOUNTING_DECISION,
+        Permission.CREATE_REVIEW_TASK,
+      ],
+    };
+
+    it("allows Accountant with both RUN_ACCOUNTING_DECISION and CREATE_REVIEW_TASK", () => {
+      expect(canRegenerateAccountingDecision(fullAccountant)).toBe(true);
+    });
+
+    it("denies Accountant missing RUN_ACCOUNTING_DECISION", () => {
+      const p: Principal = {
+        ...fullAccountant,
+        permissions: [Permission.CREATE_REVIEW_TASK],
+      };
+      expect(canRegenerateAccountingDecision(p)).toBe(false);
+    });
+
+    it("denies Accountant missing CREATE_REVIEW_TASK", () => {
+      const p: Principal = {
+        ...fullAccountant,
+        permissions: [Permission.RUN_ACCOUNTING_DECISION],
+      };
+      expect(canRegenerateAccountingDecision(p)).toBe(false);
+    });
+
+    it("allows Senior Reviewer with both permissions", () => {
+      expect(canRegenerateAccountingDecision(fullSenior)).toBe(true);
+    });
+
+    it("denies Auditor even if given permissions", () => {
+      const audWithPerms: Principal = {
+        ...mockAuditorPrincipal,
+        permissions: [
+          Permission.RUN_ACCOUNTING_DECISION,
+          Permission.CREATE_REVIEW_TASK,
+        ],
+      };
+      expect(canRegenerateAccountingDecision(audWithPerms)).toBe(false);
+      expect(canRegenerateAccountingDecision(mockAuditorPrincipal)).toBe(false);
+    });
+
+    it("denies Firm Admin and Client Submitter", () => {
+      expect(canRegenerateAccountingDecision(mockFirmAdminPrincipal)).toBe(false);
+      expect(canRegenerateAccountingDecision(mockClientSubmitterPrincipal)).toBe(false);
+      expect(canRegenerateAccountingDecision(null)).toBe(false);
+      expect(canRegenerateAccountingDecision(undefined)).toBe(false);
     });
   });
 

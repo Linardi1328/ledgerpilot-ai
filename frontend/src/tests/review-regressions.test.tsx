@@ -9,6 +9,8 @@ import { SCENARIO_ORDINARY } from "../lib/mock/fixtures";
 import { mockDataStore } from "../lib/mock/mock-client";
 import { StaleDecisionDialog } from "../components/dialogs/StaleDecisionDialog";
 import { CorrectionDialog } from "../components/dialogs/CorrectionDialog";
+import { CommentsFeed } from "../components/workspace/CommentsFeed";
+import { canComment, canRegenerateAccountingDecision } from "../lib/policy/action-policy";
 import ClientSubmitterPortalPage from "../app/portal/[clientId]/documents/[documentId]/extractions/[extractionRunId]/decisions/[decisionRunId]/tasks/[reviewTaskId]/page";
 
 const mockPush = vi.fn();
@@ -579,6 +581,91 @@ describe("Review Findings & Security Invariant Regressions", () => {
       await waitFor(() => {
         expect(screen.getByText(/Approved accounting evidence is locked/i)).toBeInTheDocument();
       });
+    });
+  });
+
+  describe("RBAC Action Policy & UI Composer/Regeneration Enforcement", () => {
+    it("CommentsFeed hides composer when canAddComment is false", () => {
+      const { rerender } = render(
+        <CommentsFeed
+          comments={[]}
+          canAddComment={false}
+          onAddComment={vi.fn()}
+        />
+      );
+
+      expect(screen.queryByPlaceholderText(/Add internal reviewer note.../i)).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Post/i })).not.toBeInTheDocument();
+
+      rerender(
+        <CommentsFeed
+          comments={[]}
+          canAddComment={true}
+          onAddComment={vi.fn()}
+        />
+      );
+
+      expect(screen.getByPlaceholderText(/Add internal reviewer note.../i)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Post/i })).toBeInTheDocument();
+    });
+
+    it("canComment requires ADD_REVIEW_COMMENT and active non-terminal task", () => {
+      const activeTask = SCENARIO_ORDINARY.task;
+      const terminalTask = {
+        ...SCENARIO_ORDINARY.task,
+        status: ReviewTaskStatus.APPROVED,
+      };
+
+      const accountantWithPerm = {
+        ...mockDataStore.getPrincipal(Role.ACCOUNTANT),
+        permissions: [Permission.ADD_REVIEW_COMMENT],
+      };
+
+      const accountantWithoutPerm = {
+        ...mockDataStore.getPrincipal(Role.ACCOUNTANT),
+        permissions: [Permission.VIEW_REVIEW_TASK],
+      };
+
+      expect(canComment(accountantWithPerm, activeTask)).toBe(true);
+      expect(canComment(accountantWithoutPerm, activeTask)).toBe(false);
+      expect(canComment(accountantWithPerm, terminalTask)).toBe(false);
+    });
+
+    it("canRegenerateAccountingDecision verifies all role & permission matrix combinations", () => {
+      const baseAccountant = mockDataStore.getPrincipal(Role.ACCOUNTANT);
+      const baseSenior = mockDataStore.getPrincipal(Role.SENIOR_REVIEWER);
+      const baseAuditor = mockDataStore.getPrincipal(Role.AUDITOR);
+
+      // 1. Accountant with both permissions -> true
+      const fullAccountant = {
+        ...baseAccountant,
+        permissions: [Permission.RUN_ACCOUNTING_DECISION, Permission.CREATE_REVIEW_TASK],
+      };
+      expect(canRegenerateAccountingDecision(fullAccountant)).toBe(true);
+
+      // 2. Accountant missing RUN_ACCOUNTING_DECISION -> false
+      const missingRunAcc = {
+        ...baseAccountant,
+        permissions: [Permission.CREATE_REVIEW_TASK],
+      };
+      expect(canRegenerateAccountingDecision(missingRunAcc)).toBe(false);
+
+      // 3. Accountant missing CREATE_REVIEW_TASK -> false
+      const missingCreateTask = {
+        ...baseAccountant,
+        permissions: [Permission.RUN_ACCOUNTING_DECISION],
+      };
+      expect(canRegenerateAccountingDecision(missingCreateTask)).toBe(false);
+
+      // 4. Senior Reviewer with both permissions -> true
+      const fullSenior = {
+        ...baseSenior,
+        permissions: [Permission.RUN_ACCOUNTING_DECISION, Permission.CREATE_REVIEW_TASK],
+      };
+      expect(canRegenerateAccountingDecision(fullSenior)).toBe(true);
+
+      // 5. Auditor -> false
+      expect(canRegenerateAccountingDecision(baseAuditor)).toBe(false);
     });
   });
 });
