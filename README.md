@@ -1,6 +1,6 @@
 # LedgerPilot AI
 
-**Current status: Phase 5 — Human Review, first slice (review branch)**
+**Current status: Phase 5 — Human Review completion (review branch)**
 
 LedgerPilot AI is a planned accounting automation assistant for reducing repetitive bookkeeping and accounting work while preserving deterministic accounting controls, traceability, and human review.
 
@@ -84,7 +84,7 @@ Initial MVP scope includes synthetic purchase invoices, manual structured input,
 
 See [Role and Permission Model](docs/ROLE_PERMISSION_MODEL.md).
 
-## Implemented Through Phase 4
+## Implemented Through Phase 5
 
 `main` includes the Phase 1 infrastructure, Phase 2 secure document-intake boundary, Phase 3 structured-extraction foundation, and the merged Phase 4 accounting-decision foundation:
 
@@ -114,32 +114,33 @@ See [Role and Permission Model](docs/ROLE_PERMISSION_MODEL.md).
 
 Phase 4 was merged through PR #5. Its recommendations are not approvals and are not professional accounting or tax advice. Unsupported document types, invalid monetary values, and invalid currencies produce review findings rather than type-specific journals. The current accounting policy and tax-code behavior use synthetic configurable rules only and require future practitioner validation.
 
-## Phase 5 Human Review — First Slice
+## Phase 5 Human Review — Completion
 
-The current review branch adds only the first controlled human-review slice:
+The current review branch completes the human-supervised Phase 5 workflow:
 
-- one review task per succeeded Phase 4 accounting decision;
-- explicit linkage to firm, client, document, extraction run, and accounting decision run;
-- active Accountant/Senior Reviewer ownership scoped to an authorized client;
-- dedicated review-task create/read permissions;
-- public create/list/get review-task API boundaries;
-- a minimal deterministic lifecycle of `open -> escalated`;
-- deterministic senior escalation state with senior ownership and timestamp;
-- `review_task_created` and `review_task_escalated` audit events;
-- PostgreSQL constraints for source scope, owner client access, and valid state combinations.
+- one scoped review task per succeeded Phase 4 accounting decision;
+- deterministic `ordinary`, `senior_review_required`, and `blocked` risk classes;
+- Accountant/Senior Reviewer ownership restricted to authorised clients;
+- public create/read, senior-escalation, comment, information-request, approval, rejection, and history boundaries;
+- client-submitters receive only the outstanding information request and response boundary;
+- ordinary approval by the assigned authorised reviewer and senior-only approval for senior-routed work;
+- deterministic approval blocking for missing/unbalanced journals and error findings;
+- immutable review outcomes linked to the exact accounting decision and proposed journal;
+- `corrected_and_approved` outcomes when human extraction corrections preceded the reviewed decision;
+- stale-source rejection when a newer extraction correction exists after the accounting decision;
+- append-only review comments and audit events;
+- read-only review history for authorised auditors;
+- PostgreSQL constraints and row-locking around review ownership, scope, state, and terminal outcomes.
 
-The public API in this first slice is intentionally read/create only. The senior-escalation operation exists at the service/domain layer for deterministic lifecycle coverage; a public escalation mutation boundary is deferred to a later Phase 5 slice.
-
-Creating or escalating a review task does not modify the underlying Phase 4 accounting decision and never converts a recommendation into an approval. Approval, rejection, correction of approved records, comments, information requests, posting, payment execution, supplier bank-detail changes, SQL Account export, production MyInvois integration, and production OCR/auth/storage remain out of scope. See [Human Review](docs/HUMAN_REVIEW.md).
+Creating, escalating, commenting on, or requesting information for a review task never converts an AI/rule recommendation into an approval. Approval is an explicit attributable human workflow outcome and does not mutate the underlying Phase 4 decision or proposed journal. Posting, payment execution, supplier-bank-detail changes, SQL Account export, production MyInvois integration, and production OCR/auth/storage remain out of scope. See [Human Review](docs/HUMAN_REVIEW.md).
 
 ## Planned Capabilities
 
 - Production-grade document storage, malware scanning, retention, and secure retrieval.
 - Production OCR provider integration.
 - Practitioner-validated accounting and tax configuration.
-- Remaining review workflow actions: approval, correction, rejection, comments, and information requests.
-- Public senior-escalation mutation boundary after the first review slice is validated.
-- Audit-history presentation.
+- Controlled post-approval correction, reversal, and supersession workflows.
+- Cross-decision review-queue/query APIs for larger operational workloads.
 - Future accounting-platform export.
 - Future Malaysian MyInvois/e-Invoice support.
 
@@ -213,7 +214,7 @@ The implemented endpoints are:
 - `POST /api/v1/clients/{client_id}/documents`
 - `GET /api/v1/clients/{client_id}/documents/{document_id}`
 
-There is no raw document download endpoint through the current Phase 5 first slice.
+There is no raw document download endpoint through Phase 5.
 
 Local filesystem storage and the deterministic development malware scanner are for local development and automated tests only. They are not production storage or production malware protection. See [Document Intake Security](docs/DOCUMENT_INTAKE_SECURITY.md).
 
@@ -246,15 +247,27 @@ Decision responses include validation findings, supplier-match candidates, dupli
 
 ## Human Review
 
-The Phase 5 first slice adds review-task boundaries on top of a succeeded accounting decision.
+Phase 5 adds a controlled human-review workflow on top of succeeded accounting decisions.
 
-The implemented endpoints are:
+The implemented review-task endpoints are rooted at:
 
-- `POST /api/v1/clients/{client_id}/documents/{document_id}/extractions/{extraction_run_id}/accounting-decisions/{decision_run_id}/review-tasks`
-- `GET /api/v1/clients/{client_id}/documents/{document_id}/extractions/{extraction_run_id}/accounting-decisions/{decision_run_id}/review-tasks`
-- `GET /api/v1/clients/{client_id}/documents/{document_id}/extractions/{extraction_run_id}/accounting-decisions/{decision_run_id}/review-tasks/{review_task_id}`
+`/api/v1/clients/{client_id}/documents/{document_id}/extractions/{extraction_run_id}/accounting-decisions/{decision_run_id}/review-tasks`
 
-These endpoints are limited to accountants and senior reviewers with client access. Review tasks preserve the exact Phase 4 source scope and do not imply or record approval. See [Human Review](docs/HUMAN_REVIEW.md).
+Implemented operations include:
+
+- `POST /review-tasks`
+- `GET /review-tasks`
+- `GET /review-tasks/{review_task_id}`
+- `POST /review-tasks/{review_task_id}/escalations`
+- `POST /review-tasks/{review_task_id}/comments`
+- `POST /review-tasks/{review_task_id}/information-requests`
+- `GET /review-tasks/{review_task_id}/information-request`
+- `POST /review-tasks/{review_task_id}/information-responses`
+- `POST /review-tasks/{review_task_id}/approve`
+- `POST /review-tasks/{review_task_id}/reject`
+- `GET /review-tasks/{review_task_id}/history`
+
+Reviewer actions remain tenant/client scoped and backend-authorised. Client submitters do not receive internal review history. AI/rule recommendations remain recommendations until an authorised human approval outcome is recorded. Approved outcomes preserve exact decision/journal/source lineage and do not post entries or trigger external integrations. See [Human Review](docs/HUMAN_REVIEW.md).
 
 ## Proposed Technology
 
@@ -469,7 +482,7 @@ See [Roadmap](docs/ROADMAP.md).
 
 ## Production-Readiness Disclaimer
 
-LedgerPilot AI is not production-ready. The current Phase 5 first slice establishes backend infrastructure, local-development secure document intake, deterministic structured extraction, a synthetic accounting-decision foundation, and controlled review-task creation/read/escalation state for review only. Production authentication, production deployment, production object storage, production malware scanning, production OCR, production accounting/tax policy, approvals, posting, SQL Account integration, and MyInvois integration are not implemented.
+LedgerPilot AI is not production-ready. The current Phase 5 review branch establishes backend infrastructure, local-development secure document intake, deterministic structured extraction, a synthetic accounting-decision foundation, and an attributable human review/approval workflow. Production authentication, production deployment, production object storage, production malware scanning, production OCR, practitioner-validated accounting/tax policy, accounting posting, SQL Account integration, payment execution, and MyInvois integration are not implemented.
 
 ## Accounting, Tax, and Legal Disclaimer
 

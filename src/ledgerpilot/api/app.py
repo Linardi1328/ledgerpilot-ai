@@ -41,7 +41,7 @@ def create_app(
     app = FastAPI(
         title="LedgerPilot AI",
         version=__version__,
-        description="Phase 5 human review foundation. Not production-ready.",
+        description="Phase 5 human review workflow. Not production-ready.",
     )
     app.state.settings = app_settings
     app.state.engine = engine
