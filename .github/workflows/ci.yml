@@ -83,6 +83,9 @@ jobs:
       - name: PostgreSQL reconciliation constraint tests
         run: python -m pytest tests/integration/test_postgresql_reconciliation_constraints.py
 
+      - name: PostgreSQL reconciliation review constraint tests
+        run: python -m pytest tests/integration/test_postgresql_reconciliation_review_constraints.py
+
       - name: Pytest
         run: python -m pytest --cov=ledgerpilot --cov-report=term-missing
 

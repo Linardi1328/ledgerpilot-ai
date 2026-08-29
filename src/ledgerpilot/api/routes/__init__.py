@@ -9,6 +9,7 @@ from ledgerpilot.api.routes import (
     extractions,
     health,
     reconciliation,
+    reconciliation_reviews,
     reviews,
 )
 
@@ -20,3 +21,4 @@ api_router.include_router(extractions.router, tags=["extractions"])
 api_router.include_router(accounting.router, tags=["accounting"])
 api_router.include_router(reviews.router, tags=["reviews"])
 api_router.include_router(reconciliation.router, tags=["reconciliation"])
+api_router.include_router(reconciliation_reviews.router, tags=["reconciliation"])

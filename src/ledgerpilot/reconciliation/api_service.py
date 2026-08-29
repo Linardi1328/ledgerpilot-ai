@@ -22,6 +22,9 @@ from ledgerpilot.persistence.repositories.accounting import AccountingRepository
 from ledgerpilot.persistence.repositories.clients import ClientRepository
 from ledgerpilot.persistence.repositories.extraction import ExtractionRepository
 from ledgerpilot.persistence.repositories.reconciliation import ReconciliationRepository
+from ledgerpilot.persistence.repositories.reconciliation_review import (
+    ReconciliationReviewRepository,
+)
 from ledgerpilot.persistence.repositories.review import ReviewRepository
 from ledgerpilot.reconciliation.matching import DeterministicReconciliationMatcher
 from ledgerpilot.reconciliation.targets import project_approved_reconciliation_target
@@ -54,6 +57,7 @@ class ReconciliationApiService:
         self._session = session
         self._clients = ClientRepository(session)
         self._reconciliation = ReconciliationRepository(session)
+        self._reconciliation_reviews = ReconciliationReviewRepository(session)
         self._reviews = ReviewRepository(session)
         self._accounting = AccountingRepository(session)
         self._extractions = ExtractionRepository(session)
@@ -163,11 +167,26 @@ class ReconciliationApiService:
         bank_transaction_id: UUID,
         request_id: str | None,
     ) -> ReconciliationMatchBundle:
-        transaction = self.get_transaction(
-            principal=principal,
+        self._require_client_access(principal=principal, client_id=client_id)
+        transaction = self._reconciliation_reviews.lock_transaction(
+            firm_id=principal.firm_id,
             client_id=client_id,
             bank_transaction_id=bank_transaction_id,
         )
+        if transaction is None:
+            raise ApiError(status_code=404, code="not_found", message="Not found.")
+        existing_review = self._reconciliation_reviews.get_review_for_transaction(
+            firm_id=principal.firm_id,
+            client_id=client_id,
+            bank_transaction_id=bank_transaction_id,
+        )
+        if existing_review is not None:
+            raise ApiError(
+                status_code=409,
+                code="reconciliation_review_started",
+                message="Match evidence is frozen after human reconciliation review starts.",
+            )
+
         targets = self._approved_targets(
             firm_id=principal.firm_id,
             client_id=client_id,
