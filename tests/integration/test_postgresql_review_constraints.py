@@ -3,15 +3,24 @@ from __future__ import annotations
 import os
 from collections.abc import Generator
 from datetime import UTC, datetime
+from decimal import Decimal
 
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.orm import Session
 
+from ledgerpilot.accounting.types import JournalBalanceStatus
+from ledgerpilot.persistence.models.accounting import ProposedJournal
 from ledgerpilot.persistence.models.identity import ClientAccess
-from ledgerpilot.persistence.models.review import ReviewTask
-from ledgerpilot.review.states import ReviewEscalationState, ReviewTaskStatus
+from ledgerpilot.persistence.models.review import ReviewComment, ReviewOutcome, ReviewTask
+from ledgerpilot.review.states import (
+    ReviewCommentKind,
+    ReviewEscalationState,
+    ReviewOutcomeType,
+    ReviewRiskClass,
+    ReviewTaskStatus,
+)
 from tests.integration.test_postgresql_accounting_constraints import (
     _assert_integrity_error,
     _persist_additional_decision,
@@ -24,11 +33,9 @@ def postgresql_engine() -> Generator[Engine]:
     database_url = os.environ.get("LEDGERPILOT_DATABASE_URL")
     if not database_url:
         pytest.skip("LEDGERPILOT_DATABASE_URL is not set for PostgreSQL constraint tests")
-
     url = make_url(database_url)
     if not url.drivername.startswith("postgresql"):
         pytest.skip("PostgreSQL constraint tests require a PostgreSQL database URL")
-
     engine = create_engine(database_url, future=True, hide_parameters=True)
     try:
         yield engine
@@ -36,7 +43,7 @@ def postgresql_engine() -> Generator[Engine]:
         engine.dispose()
 
 
-def test_postgresql_enforces_review_task_scope_owner_and_state_constraints(
+def test_postgresql_enforces_review_scope_state_history_and_outcome_constraints(
     postgresql_engine: Engine,
 ) -> None:
     with Session(postgresql_engine, expire_on_commit=False) as session:
@@ -51,6 +58,9 @@ def test_postgresql_enforces_review_task_scope_owner_and_state_constraints(
         )
         session.commit()
 
+        journal = _balanced_journal(seed.decision_a)
+        session.add(journal)
+        session.commit()
         valid = _review_task(
             decision=seed.decision_a,
             creator_user_id=seed.user_a.id,
@@ -84,6 +94,17 @@ def test_postgresql_enforces_review_task_scope_owner_and_state_constraints(
             ),
         )
 
+        invalid_risk_decision = _persist_additional_decision(session, seed)
+        invalid_risk = _review_task(
+            decision=invalid_risk_decision,
+            creator_user_id=seed.user_a.id,
+            creator_membership_id=seed.membership_a.id,
+            owner_user_id=seed.user_a.id,
+            owner_membership_id=seed.membership_a.id,
+        )
+        invalid_risk.risk_class = "auto_approved"
+        _assert_integrity_error(session, invalid_risk)
+
         invalid_status_decision = _persist_additional_decision(session, seed)
         invalid_status = _review_task(
             decision=invalid_status_decision,
@@ -92,31 +113,97 @@ def test_postgresql_enforces_review_task_scope_owner_and_state_constraints(
             owner_user_id=seed.user_a.id,
             owner_membership_id=seed.membership_a.id,
         )
-        invalid_status.status = "approved"
+        invalid_status.status = "posted"
         _assert_integrity_error(session, invalid_status)
 
-        inconsistent_escalation_decision = _persist_additional_decision(session, seed)
-        inconsistent_escalation = _review_task(
-            decision=inconsistent_escalation_decision,
+        inconsistent_state_decision = _persist_additional_decision(session, seed)
+        inconsistent_state = _review_task(
+            decision=inconsistent_state_decision,
             creator_user_id=seed.user_a.id,
             creator_membership_id=seed.membership_a.id,
             owner_user_id=seed.user_a.id,
             owner_membership_id=seed.membership_a.id,
         )
-        inconsistent_escalation.escalation_state = ReviewEscalationState.SENIOR_REVIEW.value
-        inconsistent_escalation.escalated_at = datetime.now(UTC)
-        _assert_integrity_error(session, inconsistent_escalation)
+        inconsistent_state.status = ReviewTaskStatus.ESCALATED.value
+        _assert_integrity_error(session, inconsistent_state)
 
-        escalated_without_state_decision = _persist_additional_decision(session, seed)
-        escalated_without_state = _review_task(
-            decision=escalated_without_state_decision,
-            creator_user_id=seed.user_a.id,
-            creator_membership_id=seed.membership_a.id,
-            owner_user_id=seed.user_a.id,
-            owner_membership_id=seed.membership_a.id,
+        _assert_integrity_error(
+            session,
+            ReviewComment(
+                review_task_id=valid.id,
+                firm_id=valid.firm_id,
+                client_id=valid.client_id,
+                decision_run_id=valid.decision_run_id,
+                author_user_id=seed.user_a.id,
+                author_membership_id=seed.membership_a.id,
+                kind="private_secret",
+                body="Synthetic invalid comment kind.",
+            ),
         )
-        escalated_without_state.status = ReviewTaskStatus.ESCALATED.value
-        _assert_integrity_error(session, escalated_without_state)
+        session.add(
+            ReviewComment(
+                review_task_id=valid.id,
+                firm_id=valid.firm_id,
+                client_id=valid.client_id,
+                decision_run_id=valid.decision_run_id,
+                author_user_id=seed.user_a.id,
+                author_membership_id=seed.membership_a.id,
+                kind=ReviewCommentKind.COMMENT.value,
+                body="Synthetic review note.",
+            )
+        )
+        session.commit()
+
+        _assert_integrity_error(
+            session,
+            ReviewOutcome(
+                review_task_id=valid.id,
+                firm_id=valid.firm_id,
+                client_id=valid.client_id,
+                decision_run_id=valid.decision_run_id,
+                document_id=valid.document_id,
+                extraction_run_id=valid.extraction_run_id,
+                actor_user_id=seed.user_a.id,
+                actor_membership_id=seed.membership_a.id,
+                outcome_type=ReviewOutcomeType.REJECTED.value,
+                proposed_journal_id=None,
+                source_correction_count=0,
+                reason=None,
+            ),
+        )
+        approved = ReviewOutcome(
+            review_task_id=valid.id,
+            firm_id=valid.firm_id,
+            client_id=valid.client_id,
+            decision_run_id=valid.decision_run_id,
+            document_id=valid.document_id,
+            extraction_run_id=valid.extraction_run_id,
+            actor_user_id=seed.user_a.id,
+            actor_membership_id=seed.membership_a.id,
+            outcome_type=ReviewOutcomeType.APPROVED.value,
+            proposed_journal_id=journal.id,
+            source_correction_count=0,
+            reason=None,
+        )
+        session.add(approved)
+        session.commit()
+        _assert_integrity_error(
+            session,
+            ReviewOutcome(
+                review_task_id=valid.id,
+                firm_id=valid.firm_id,
+                client_id=valid.client_id,
+                decision_run_id=valid.decision_run_id,
+                document_id=valid.document_id,
+                extraction_run_id=valid.extraction_run_id,
+                actor_user_id=seed.user_a.id,
+                actor_membership_id=seed.membership_a.id,
+                outcome_type=ReviewOutcomeType.APPROVED.value,
+                proposed_journal_id=journal.id,
+                source_correction_count=0,
+                reason=None,
+            ),
+        )
 
 
 def _review_task(
@@ -138,8 +225,25 @@ def _review_task(
         owner_user_id=owner_user_id,
         owner_membership_id=owner_membership_id,
         status=ReviewTaskStatus.OPEN.value,
+        risk_class=ReviewRiskClass.ORDINARY.value,
         escalation_state=ReviewEscalationState.NONE.value,
         escalated_at=None,
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
+    )
+
+
+def _balanced_journal(decision) -> ProposedJournal:
+    return ProposedJournal(
+        decision_run_id=decision.id,
+        firm_id=decision.firm_id,
+        client_id=decision.client_id,
+        document_id=decision.document_id,
+        extraction_run_id=decision.extraction_run_id,
+        currency="MYR",
+        total_debits=Decimal("100.0000"),
+        total_credits=Decimal("100.0000"),
+        balance_status=JournalBalanceStatus.BALANCED.value,
+        is_balanced=True,
+        explanation="Synthetic review outcome journal.",
     )

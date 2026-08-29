@@ -27,6 +27,8 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.REVIEW_RECOMMENDATIONS,
             Permission.CREATE_REVIEW_TASK,
             Permission.VIEW_REVIEW_TASK,
+            Permission.ADD_REVIEW_COMMENT,
+            Permission.VIEW_REVIEW_HISTORY,
             Permission.APPROVE_ORDINARY_TRANSACTION,
             Permission.REJECT_TRANSACTION,
             Permission.ESCALATE_TRANSACTION,
@@ -46,6 +48,8 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.REVIEW_RECOMMENDATIONS,
             Permission.CREATE_REVIEW_TASK,
             Permission.VIEW_REVIEW_TASK,
+            Permission.ADD_REVIEW_COMMENT,
+            Permission.VIEW_REVIEW_HISTORY,
             Permission.APPROVE_ORDINARY_TRANSACTION,
             Permission.APPROVE_HIGH_RISK_TRANSACTION,
             Permission.REJECT_TRANSACTION,
@@ -61,6 +65,8 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.VIEW_CONTEXT,
             Permission.UPLOAD_DOCUMENTS,
             Permission.VIEW_DOCUMENTS,
+            Permission.VIEW_INFORMATION_REQUEST,
+            Permission.RESPOND_TO_INFORMATION_REQUEST,
         }
     ),
     Role.AUDITOR: frozenset(
@@ -68,6 +74,8 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.VIEW_CONTEXT,
             Permission.VIEW_DOCUMENTS,
             Permission.REVIEW_RECOMMENDATIONS,
+            Permission.VIEW_REVIEW_TASK,
+            Permission.VIEW_REVIEW_HISTORY,
             Permission.VIEW_AUDIT_HISTORY,
         }
     ),

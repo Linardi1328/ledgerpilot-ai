@@ -20,3 +20,8 @@ class AuditEventType(StrEnum):
     ACCOUNTING_DECISION_FAILED = "accounting_decision_failed"
     REVIEW_TASK_CREATED = "review_task_created"
     REVIEW_TASK_ESCALATED = "review_task_escalated"
+    REVIEW_COMMENT_ADDED = "review_comment_added"
+    REVIEW_INFORMATION_REQUESTED = "review_information_requested"
+    REVIEW_INFORMATION_RESPONDED = "review_information_responded"
+    REVIEW_TASK_APPROVED = "review_task_approved"
+    REVIEW_TASK_REJECTED = "review_task_rejected"

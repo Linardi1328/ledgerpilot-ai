@@ -2,47 +2,95 @@
 
 ## Current Status
 
-**Current status: Phase 5 — Human Review, first slice (review branch)**
+**Current status: Phase 5 — Human Review completion (review branch)**
 
-`main` contains the merged Phase 4 accounting-decision foundation through PR #5. The Phase 4 merge adds versioned accounting decision runs, deterministic validation findings, supplier-match candidates, duplicate candidates, configurable synthetic recommendations, proposed journals, source lineage, journal-balance controls, scoped RBAC, audit events, and PostgreSQL accounting constraints.
+`main` contains the merged Phase 5 first-slice human-review foundation plus the PPO PR validation
+adapter. The current review branch completes the planned Phase 5 human-review workflow without
+adding export, payment, production OCR/auth/storage, SQL Account, MyInvois, or autonomous
+accounting actions.
 
-Phase 4 outputs are recommendations only. They are not approvals, postings, payment instructions, professional accounting/tax advice, SQL Account exports, or MyInvois submissions.
+Phase 4 accounting outputs remain recommendations until an authorised human review outcome is
+recorded. Approval never mutates the Phase 4 accounting decision or its proposed journal.
 
-The current Phase 5 review branch adds the smallest coherent human-review foundation: scoped review-task creation/read boundaries, accountant/senior-reviewer ownership, deterministic senior escalation state, audit events, and database constraints linking review ownership and source decision scope.
+## Phase 5 Completion Scope
 
-## Handover Summary
+This branch adds:
 
-The project has established:
+- deterministic review risk classification: `ordinary`, `senior_review_required`, or `blocked`;
+- public senior-escalation routing with a required attributable reason;
+- reviewer comments;
+- client-scoped information requests and submitter responses;
+- a client-safe endpoint that exposes only the outstanding information request;
+- ordinary accountant approval and senior-only approval for senior-routed work;
+- deterministic approval blocking for missing/unbalanced journals and error findings;
+- rejection with a required reason;
+- immutable `review_outcomes` linked to the exact reviewed decision and proposed journal;
+- `corrected_and_approved` outcomes when the reviewed decision was generated after human
+  extraction corrections;
+- stale-source protection that refuses approval when a newer extraction correction exists after
+  the reviewed accounting decision;
+- append-only review comments and audit events;
+- authorised audit/history views for accountants, senior reviewers, and auditors;
+- row locking and database uniqueness/ownership/state constraints for review transitions.
 
-- Product purpose and safety principles.
-- Prototype 1 MVP scope.
-- User roles and conceptual permissions.
-- Domain model documentation plus implemented identity, document, audit, extraction, accounting-decision, and first-slice review-task primitives.
-- Functional and non-functional requirements.
-- Accounting-control principles, security/privacy requirements, risk register, architecture direction, and ADRs.
-- FastAPI, typed settings, SQLAlchemy, Alembic, PostgreSQL development configuration, RBAC, tenant/client scoping, audit events, secure document intake, structured extraction, and accounting-decision foundations.
-- Phase 4 accounting decision persistence, synthetic configurable rules, deterministic Decimal validation, recommendation lineage, journal-balance controls, and safe accounting-decision audit events.
-- Phase 5 first-slice review tasks with explicit source linkage, reviewer ownership, `open -> escalated` lifecycle, senior-review escalation, and append-only audit evidence.
+## Human-Supervision Boundary
 
-## Human-Review Safety Boundary
+The system still does not:
 
-The Phase 5 first slice does not implement approval, rejection, posting, correction of approved records, payment execution, supplier bank-detail changes, SQL Account export, production MyInvois integration, production OCR/auth/storage, or autonomous accounting judgement.
+- approve based on AI confidence;
+- post accounting entries;
+- release payments;
+- change supplier bank details;
+- export to SQL Account;
+- submit to MyInvois;
+- perform production OCR, authentication, or document storage;
+- silently rewrite an approved accounting decision or journal;
+- provide unsupervised accounting, tax, or legal judgement.
 
-Creating or escalating a review task never changes the underlying Phase 4 decision run or converts any recommendation into an approval.
+Approval is an attributable human workflow outcome. The approved outcome references the immutable
+Phase 4 decision and proposed journal used during review.
 
-## Owner-Tested Baseline
+## Correction Rule
 
-Phase 0 through Phase 3 have completed owner testing with synthetic data only. Phase 4 has been merged to `main` after its PR review/CI process. This Phase 5 branch still requires its own complete CI and independent review before merge.
+Extraction corrections remain append-only.
 
-## Review Notes
+If a correction existed before the reviewed accounting decision was generated, the decision can be
+reviewed and the terminal outcome is recorded as `corrected_and_approved`.
 
-- Accountant interviews are occurring separately.
-- The planned Phase 4 accountant interview was postponed.
-- Requirements marked provisional require practitioner validation.
-- Malaysian accounting, taxation, privacy, and MyInvois rules require independent expert validation before production use.
-- All repository examples are synthetic.
-- No real client data or credentials should be committed to this public repository.
+If a correction is created after the accounting decision, that decision is stale for approval. The
+reviewer must create a fresh Phase 4 accounting decision and review task. This prevents a human
+approval from silently applying to accounting output that did not include the latest corrected
+source evidence.
+
+Post-approval correction, reversal, supersession, and export remain later controlled workflows.
+
+## Review and Test Gate
+
+Before this branch can be treated as complete or squash-merged:
+
+- Ruff lint must pass.
+- Ruff formatting check must pass.
+- Mypy strict checking on `src` must pass.
+- Alembic upgrade/downgrade/re-upgrade must pass.
+- PostgreSQL document, extraction, accounting, and review constraint tests must pass.
+- Full Pytest with the configured coverage threshold must pass.
+- Package build must pass.
+- PPO PR validation must pass.
+- The complete public diff must be reviewed.
+- The pull request must remain unmerged until independent review/owner approval.
+
+## Practitioner Validation
+
+The synthetic routing rules in this branch are development controls, not professional accounting or
+tax policy. Thresholds, authority limits, tax treatment, and which warnings require senior review
+remain subject to practitioner validation before production use.
+
+All fixtures and examples are synthetic. Do not commit real invoices, taxpayer identifiers, bank
+details, client records, credentials, secrets, or production data.
 
 ## Next Recommended Action
 
-Run the complete Phase 5 quality gate, inspect the public diff, and independently review the Phase 5 pull request before merge. Do not merge without review.
+Finish the Phase 5 quality gate, review the complete pull-request diff, and obtain independent
+approval before squash-merging to `main`. After Phase 5 is merged, the next roadmap phase is
+controlled bank-reconciliation infrastructure; frontend work can proceed in parallel against the
+documented Phase 5 API without inventing additional accounting authority.

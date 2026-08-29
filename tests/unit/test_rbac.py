@@ -39,46 +39,51 @@ def test_firm_admin_is_not_implicit_allow_all_for_accounting_permissions() -> No
     assert not has_permission(admin, Permission.CORRECT_APPROVED_RECORDS)
 
 
-def test_auditor_remains_read_only() -> None:
+def test_auditor_remains_read_only_but_can_view_authorized_review_history() -> None:
     auditor = _principal(Role.AUDITOR)
     assert has_permission(auditor, Permission.VIEW_AUDIT_HISTORY)
     assert has_permission(auditor, Permission.VIEW_DOCUMENTS)
+    assert has_permission(auditor, Permission.VIEW_REVIEW_TASK)
+    assert has_permission(auditor, Permission.VIEW_REVIEW_HISTORY)
     assert not has_permission(auditor, Permission.CREATE_REVIEW_TASK)
-    assert not has_permission(auditor, Permission.VIEW_REVIEW_TASK)
+    assert not has_permission(auditor, Permission.ADD_REVIEW_COMMENT)
     assert not has_permission(auditor, Permission.REJECT_TRANSACTION)
     assert not has_permission(auditor, Permission.RUN_EXTRACTION)
     assert not has_permission(auditor, Permission.RUN_ACCOUNTING_DECISION)
     assert not has_permission(auditor, Permission.CORRECT_EXTRACTED_INFORMATION)
 
 
-def test_client_submitter_has_restricted_access() -> None:
+def test_client_submitter_can_only_respond_to_information_requests_in_review_workflow() -> None:
     submitter = _principal(Role.CLIENT_SUBMITTER)
     assert has_permission(submitter, Permission.UPLOAD_DOCUMENTS)
+    assert has_permission(submitter, Permission.VIEW_INFORMATION_REQUEST)
+    assert has_permission(submitter, Permission.RESPOND_TO_INFORMATION_REQUEST)
     assert not has_permission(submitter, Permission.RUN_EXTRACTION)
     assert not has_permission(submitter, Permission.CREATE_REVIEW_TASK)
     assert not has_permission(submitter, Permission.VIEW_REVIEW_TASK)
+    assert not has_permission(submitter, Permission.ADD_REVIEW_COMMENT)
     assert not has_permission(submitter, Permission.REQUEST_INFORMATION)
-    assert not has_permission(submitter, Permission.VIEW_AUDIT_HISTORY)
+    assert not has_permission(submitter, Permission.VIEW_REVIEW_HISTORY)
     assert not has_permission(submitter, Permission.MANAGE_CONFIGURATION)
 
 
-def test_accountant_and_senior_reviewer_can_run_extraction() -> None:
-    assert has_permission(_principal(Role.ACCOUNTANT), Permission.RUN_EXTRACTION)
-    assert has_permission(_principal(Role.SENIOR_REVIEWER), Permission.RUN_EXTRACTION)
-
-
-def test_accountant_and_senior_reviewer_can_run_accounting_decisions() -> None:
-    assert has_permission(_principal(Role.ACCOUNTANT), Permission.RUN_ACCOUNTING_DECISION)
-    assert has_permission(_principal(Role.SENIOR_REVIEWER), Permission.RUN_ACCOUNTING_DECISION)
-
-
-def test_only_accountant_and_senior_reviewer_can_use_review_task_boundaries() -> None:
+def test_accountant_and_senior_reviewer_have_review_workflow_permissions() -> None:
     for role in (Role.ACCOUNTANT, Role.SENIOR_REVIEWER):
         principal = _principal(role)
+        assert has_permission(principal, Permission.RUN_EXTRACTION)
+        assert has_permission(principal, Permission.RUN_ACCOUNTING_DECISION)
         assert has_permission(principal, Permission.CREATE_REVIEW_TASK)
         assert has_permission(principal, Permission.VIEW_REVIEW_TASK)
+        assert has_permission(principal, Permission.ADD_REVIEW_COMMENT)
+        assert has_permission(principal, Permission.VIEW_REVIEW_HISTORY)
+        assert has_permission(principal, Permission.REQUEST_INFORMATION)
+        assert has_permission(principal, Permission.REJECT_TRANSACTION)
+        assert has_permission(principal, Permission.ESCALATE_TRANSACTION)
 
-    for role in (Role.FIRM_ADMIN, Role.CLIENT_SUBMITTER, Role.AUDITOR):
-        principal = _principal(role)
-        assert not has_permission(principal, Permission.CREATE_REVIEW_TASK)
-        assert not has_permission(principal, Permission.VIEW_REVIEW_TASK)
+
+def test_only_senior_reviewer_has_high_risk_approval_permission() -> None:
+    assert not has_permission(_principal(Role.ACCOUNTANT), Permission.APPROVE_HIGH_RISK_TRANSACTION)
+    assert has_permission(
+        _principal(Role.SENIOR_REVIEWER),
+        Permission.APPROVE_HIGH_RISK_TRANSACTION,
+    )

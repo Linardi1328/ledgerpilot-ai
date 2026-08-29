@@ -23,7 +23,7 @@ from ledgerpilot.persistence.models.identity import (
     FirmMembership,
     User,
 )
-from ledgerpilot.persistence.models.review import ReviewTask
+from ledgerpilot.persistence.models.review import ReviewComment, ReviewOutcome, ReviewTask
 
 __all__ = [
     "AccountingDecisionFinding",
@@ -43,6 +43,8 @@ __all__ = [
     "FirmMembership",
     "ProposedJournal",
     "ProposedJournalLine",
+    "ReviewComment",
+    "ReviewOutcome",
     "ReviewTask",
     "User",
 ]

@@ -22,7 +22,7 @@ def test_openapi_metadata_uses_phase_5_label(client: TestClient) -> None:
 
     assert response.status_code == 200
     description = response.json()["info"]["description"]
-    assert description == "Phase 5 human review foundation. Not production-ready."
+    assert description == "Phase 5 human review workflow. Not production-ready."
     assert "Phase 1" not in description
     assert "Phase 2" not in description
     assert "Phase 4" not in description
