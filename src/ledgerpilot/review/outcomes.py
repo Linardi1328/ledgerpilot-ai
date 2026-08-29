@@ -130,6 +130,18 @@ class ReviewOutcomeService(ReviewServiceSupport):
                 message="A balanced proposed journal is required for approval.",
             )
 
+        locked_extraction = self._extractions.lock_run_for_document(
+            firm_id=task.firm_id,
+            client_id=task.client_id,
+            document_id=task.document_id,
+            run_id=task.extraction_run_id,
+        )
+        if locked_extraction is None:
+            raise ApiError(
+                status_code=409,
+                code="decision_not_reviewable",
+                message="Accounting decision source extraction is not available.",
+            )
         corrections = self._extractions.list_corrections_for_run(
             firm_id=task.firm_id,
             client_id=task.client_id,

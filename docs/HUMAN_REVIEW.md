@@ -134,7 +134,12 @@ When a correction is newer than the reviewed Phase 4 decision, approval fails wi
 
 This avoids silently approving accounting output that predates the latest corrected evidence.
 
-Post-approval reversal/supersession is not implemented in Phase 5.
+Direct extraction corrections are rejected with `approved_record_locked` once an approved
+review outcome is linked to that extraction. Approval and correction both lock the extraction run
+before checking/writing correction state, so a concurrent correction cannot race past approval and a
+concurrent approval cannot miss a correction that committed first.
+
+Post-approval correction/reversal/supersession remains a future controlled workflow.
 
 ## Rejection
 

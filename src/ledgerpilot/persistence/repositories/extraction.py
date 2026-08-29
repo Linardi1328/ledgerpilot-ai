@@ -44,6 +44,26 @@ class ExtractionRepository:
         )
         return self._session.scalar(statement)
 
+    def lock_run_for_document(
+        self,
+        *,
+        firm_id: UUID,
+        client_id: UUID,
+        document_id: UUID,
+        run_id: UUID,
+    ) -> ExtractionRun | None:
+        statement = (
+            select(ExtractionRun)
+            .where(
+                ExtractionRun.id == run_id,
+                ExtractionRun.firm_id == firm_id,
+                ExtractionRun.client_id == client_id,
+                ExtractionRun.document_id == document_id,
+            )
+            .with_for_update()
+        )
+        return self._session.scalar(statement)
+
     def list_runs_for_document(
         self,
         *,
