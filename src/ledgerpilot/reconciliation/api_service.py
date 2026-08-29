@@ -4,9 +4,10 @@ from dataclasses import dataclass
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from ledgerpilot.accounting.service import build_effective_extraction_values
 from ledgerpilot.api.errors import ApiError
 from ledgerpilot.audit.service import AuditService
 from ledgerpilot.audit.types import AuditEventType
@@ -17,9 +18,19 @@ from ledgerpilot.persistence.models.reconciliation import (
     ReconciliationCandidateRecord,
     ReconciliationMatchRunRecord,
 )
+from ledgerpilot.persistence.repositories.accounting import AccountingRepository
 from ledgerpilot.persistence.repositories.clients import ClientRepository
+from ledgerpilot.persistence.repositories.extraction import ExtractionRepository
 from ledgerpilot.persistence.repositories.reconciliation import ReconciliationRepository
-from ledgerpilot.reconciliation.types import BankImportBatch
+from ledgerpilot.persistence.repositories.review import ReviewRepository
+from ledgerpilot.reconciliation.matching import DeterministicReconciliationMatcher
+from ledgerpilot.reconciliation.targets import project_approved_reconciliation_target
+from ledgerpilot.reconciliation.types import (
+    ApprovedReconciliationTarget,
+    BankImportBatch,
+    BankTransactionDirection,
+    ImportedBankTransaction,
+)
 
 SYNTHETIC_API_PROVIDER_NAME = "synthetic_bank_feed"
 SYNTHETIC_API_PROVIDER_VERSION = "1.0"
@@ -32,11 +43,20 @@ class BankImportPersistenceResult:
     created: bool
 
 
+@dataclass(frozen=True)
+class ReconciliationMatchBundle:
+    run: ReconciliationMatchRunRecord
+    candidates: tuple[ReconciliationCandidateRecord, ...]
+
+
 class ReconciliationApiService:
     def __init__(self, *, session: Session) -> None:
         self._session = session
         self._clients = ClientRepository(session)
         self._reconciliation = ReconciliationRepository(session)
+        self._reviews = ReviewRepository(session)
+        self._accounting = AccountingRepository(session)
+        self._extractions = ExtractionRepository(session)
         self._audit = AuditService(session)
 
     def persist_import_batch(
@@ -134,6 +154,63 @@ class ReconciliationApiService:
             transactions=transactions,
             created=True,
         )
+
+    def generate_match_run(
+        self,
+        *,
+        principal: Principal,
+        client_id: UUID,
+        bank_transaction_id: UUID,
+        request_id: str | None,
+    ) -> ReconciliationMatchBundle:
+        transaction = self.get_transaction(
+            principal=principal,
+            client_id=client_id,
+            bank_transaction_id=bank_transaction_id,
+        )
+        targets = self._approved_targets(
+            firm_id=principal.firm_id,
+            client_id=client_id,
+        )
+        result = DeterministicReconciliationMatcher().match(
+            _transaction_value(transaction),
+            targets,
+        )
+        run = self._reconciliation.add_match_result(transaction=transaction, result=result)
+        self._audit.record_event(
+            firm_id=principal.firm_id,
+            client_id=client_id,
+            actor_user_id=principal.user_id,
+            event_type=AuditEventType.RECONCILIATION_MATCH_GENERATED.value,
+            target_type="reconciliation_match_run",
+            target_id=str(run.id),
+            request_id=request_id,
+            metadata={
+                "bank_transaction_id": str(transaction.id),
+                "status": result.status.value,
+                "candidate_count": len(result.candidates),
+                "matcher_name": result.matcher_name,
+                "matcher_version": result.matcher_version,
+            },
+        )
+        try:
+            self._session.commit()
+        except SQLAlchemyError as exc:
+            self._session.rollback()
+            raise ApiError(
+                status_code=503,
+                code="reconciliation_persistence_failed",
+                message="Reconciliation match evidence could not be persisted.",
+            ) from exc
+
+        candidates = tuple(
+            self._reconciliation.list_candidates_for_run(
+                firm_id=principal.firm_id,
+                client_id=client_id,
+                match_run_id=run.id,
+            )
+        )
+        return ReconciliationMatchBundle(run=run, candidates=candidates)
 
     def list_import_batches(
         self,
@@ -244,6 +321,45 @@ class ReconciliationApiService:
             match_run_id=match_run_id,
         )
 
+    def _approved_targets(
+        self,
+        *,
+        firm_id: UUID,
+        client_id: UUID,
+    ) -> tuple[ApprovedReconciliationTarget, ...]:
+        targets: list[ApprovedReconciliationTarget] = []
+        for outcome in self._reviews.list_approved_outcomes_for_client(
+            firm_id=firm_id,
+            client_id=client_id,
+        ):
+            fields = self._extractions.list_fields_for_run(
+                firm_id=firm_id,
+                client_id=client_id,
+                document_id=outcome.document_id,
+                run_id=outcome.extraction_run_id,
+            )
+            corrections = self._extractions.list_corrections_for_run(
+                firm_id=firm_id,
+                client_id=client_id,
+                document_id=outcome.document_id,
+                run_id=outcome.extraction_run_id,
+            )
+            journal = self._accounting.get_proposed_journal_for_run(
+                firm_id=firm_id,
+                client_id=client_id,
+                document_id=outcome.document_id,
+                extraction_run_id=outcome.extraction_run_id,
+                decision_run_id=outcome.decision_run_id,
+            )
+            target = project_approved_reconciliation_target(
+                outcome=outcome,
+                journal=journal,
+                effective_values=build_effective_extraction_values(fields, corrections),
+            )
+            if target is not None:
+                targets.append(target)
+        return tuple(targets)
+
     def _require_client_access(self, *, principal: Principal, client_id: UUID) -> None:
         client = self._clients.get_authorized_client(
             membership_id=principal.membership_id,
@@ -287,3 +403,19 @@ class ReconciliationApiService:
             ):
                 return False
         return True
+
+
+def _transaction_value(record: BankTransactionRecord) -> ImportedBankTransaction:
+    return ImportedBankTransaction(
+        firm_id=record.firm_id,
+        client_id=record.client_id,
+        source_transaction_id=record.source_transaction_id,
+        booking_date=record.booking_date,
+        value_date=record.value_date,
+        direction=BankTransactionDirection(record.direction),
+        amount=Decimal(record.amount),
+        currency=record.currency,
+        description=record.description,
+        reference=record.reference,
+        counterparty_name=record.counterparty_name,
+    )

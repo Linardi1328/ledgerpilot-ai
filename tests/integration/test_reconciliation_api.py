@@ -3,8 +3,11 @@ from __future__ import annotations
 from decimal import Decimal
 
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
+from ledgerpilot.persistence.repositories.identity import IdentityRepository
 from tests.conftest import IdentitySeed
+from tests.integration.test_review_task_api import _create_decision, _review_url
 
 
 def _headers(subject: str, firm_id: object) -> dict[str, str]:
@@ -19,6 +22,8 @@ def _payload(
     batch_reference: str = "synthetic-batch-api-1",
     source_transaction_id: str = "synthetic-tx-api-1",
     amount: object = "125.50",
+    booking_date: str = "2026-08-15",
+    counterparty_name: str = "Synthetic Supplier",
 ) -> dict[str, object]:
     return {
         "provider_batch_reference": batch_reference,
@@ -28,13 +33,13 @@ def _payload(
         "transactions": [
             {
                 "source_transaction_id": source_transaction_id,
-                "booking_date": "2026-08-15",
+                "booking_date": booking_date,
                 "direction": "debit",
                 "amount": amount,
                 "currency": "MYR",
                 "description": "Synthetic supplier settlement",
                 "reference": "SYN-INV-001",
-                "counterparty_name": "Synthetic Supplier",
+                "counterparty_name": counterparty_name,
             }
         ],
     }
@@ -223,3 +228,146 @@ def test_bank_import_rejects_json_number_money_and_excess_precision(
 
     assert number_amount.status_code == 422
     assert excessive_precision.status_code == 422
+
+
+def test_match_generation_uses_only_server_projected_approved_outcome(
+    client: TestClient,
+    identity_seed: IdentitySeed,
+) -> None:
+    headers = _headers(identity_seed.accountant.external_subject, identity_seed.firm_a.id)
+    document_id, extraction_run_id, decision_run_id, _ = _create_decision(client, identity_seed)
+    review_url = _review_url(
+        identity_seed.client_a.id,
+        document_id,
+        extraction_run_id,
+        decision_run_id,
+    )
+    task = client.post(review_url, headers=headers, json={}).json()
+    approved = client.post(f"{review_url}/{task['id']}/approve", headers=headers, json={})
+    assert approved.status_code == 200
+    outcome_id = approved.json()["outcome"]["id"]
+
+    import_response = client.post(
+        f"/api/v1/clients/{identity_seed.client_a.id}/bank-reconciliation/imports/synthetic",
+        headers=headers,
+        json=_payload(
+            batch_reference="synthetic-match-batch-1",
+            source_transaction_id="synthetic-match-tx-1",
+            amount="100.00",
+            booking_date="2026-08-11",
+            counterparty_name="Synthetic Office Supplies Sdn. Bhd.",
+        ),
+    )
+    assert import_response.status_code == 201
+    transaction_id = import_response.json()["transactions"][0]["id"]
+
+    match = client.post(
+        f"/api/v1/clients/{identity_seed.client_a.id}/bank-reconciliation/transactions/"
+        f"{transaction_id}/match-runs",
+        headers=headers,
+        json={},
+    )
+
+    assert match.status_code == 201
+    payload = match.json()
+    assert payload["run"]["status"] == "candidates_available"
+    assert len(payload["candidates"]) == 1
+    candidate = payload["candidates"][0]
+    assert candidate["review_outcome_id"] == outcome_id
+    assert candidate["document_id"] == str(document_id)
+    assert Decimal(candidate["score"]) == Decimal("1.0000")
+    assert Decimal(candidate["target_amount"]) == Decimal("100.00")
+    assert candidate["target_currency"] == "MYR"
+    assert candidate["target_direction"] == "debit"
+    assert candidate["target_reference"] == "SYN-INV-001"
+
+
+def test_rejected_review_outcome_is_not_a_reconciliation_target(
+    client: TestClient,
+    identity_seed: IdentitySeed,
+) -> None:
+    headers = _headers(identity_seed.accountant.external_subject, identity_seed.firm_a.id)
+    document_id, extraction_run_id, decision_run_id, _ = _create_decision(
+        client,
+        identity_seed,
+        filename="synthetic-reconciliation-rejected.pdf",
+    )
+    review_url = _review_url(
+        identity_seed.client_a.id,
+        document_id,
+        extraction_run_id,
+        decision_run_id,
+    )
+    task = client.post(review_url, headers=headers, json={}).json()
+    rejected = client.post(
+        f"{review_url}/{task['id']}/reject",
+        headers=headers,
+        json={"reason": "Synthetic rejected reconciliation target."},
+    )
+    assert rejected.status_code == 200
+
+    import_response = client.post(
+        f"/api/v1/clients/{identity_seed.client_a.id}/bank-reconciliation/imports/synthetic",
+        headers=headers,
+        json=_payload(
+            batch_reference="synthetic-match-batch-rejected",
+            source_transaction_id="synthetic-match-tx-rejected",
+            amount="100.00",
+            booking_date="2026-08-11",
+        ),
+    )
+    transaction_id = import_response.json()["transactions"][0]["id"]
+
+    match = client.post(
+        f"/api/v1/clients/{identity_seed.client_a.id}/bank-reconciliation/transactions/"
+        f"{transaction_id}/match-runs",
+        headers=headers,
+        json={},
+    )
+
+    assert match.status_code == 201
+    assert match.json()["run"]["status"] == "unmatched"
+    assert match.json()["candidates"] == []
+
+
+def test_auditor_can_read_but_cannot_generate_reconciliation_matches(
+    client: TestClient,
+    db_session: Session,
+    identity_seed: IdentitySeed,
+) -> None:
+    accountant_headers = _headers(
+        identity_seed.accountant.external_subject,
+        identity_seed.firm_a.id,
+    )
+    imported = client.post(
+        f"/api/v1/clients/{identity_seed.client_a.id}/bank-reconciliation/imports/synthetic",
+        headers=accountant_headers,
+        json=_payload(
+            batch_reference="synthetic-auditor-batch",
+            source_transaction_id="synthetic-auditor-tx",
+        ),
+    )
+    transaction_id = imported.json()["transactions"][0]["id"]
+
+    IdentityRepository(db_session).grant_client_access(
+        membership_id=identity_seed.auditor_membership.id,
+        firm_id=identity_seed.firm_a.id,
+        client_id=identity_seed.client_a.id,
+    )
+    db_session.commit()
+    auditor_headers = _headers(identity_seed.auditor.external_subject, identity_seed.firm_a.id)
+
+    read = client.get(
+        f"/api/v1/clients/{identity_seed.client_a.id}/bank-reconciliation/transactions/"
+        f"{transaction_id}/match-runs",
+        headers=auditor_headers,
+    )
+    generate = client.post(
+        f"/api/v1/clients/{identity_seed.client_a.id}/bank-reconciliation/transactions/"
+        f"{transaction_id}/match-runs",
+        headers=auditor_headers,
+        json={},
+    )
+
+    assert read.status_code == 200
+    assert generate.status_code == 403

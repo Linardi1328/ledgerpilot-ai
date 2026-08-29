@@ -21,6 +21,7 @@ from ledgerpilot.reconciliation.schemas import (
     BankImportResponse,
     BankTransactionResponse,
     ReconciliationCandidateResponse,
+    ReconciliationMatchResponse,
     ReconciliationMatchRunResponse,
     SyntheticBankImportCreateRequest,
 )
@@ -153,6 +154,36 @@ def get_bank_transaction(
         bank_transaction_id=bank_transaction_id,
     )
     return BankTransactionResponse.from_record(transaction)
+
+
+@router.post(
+    "/transactions/{bank_transaction_id}/match-runs",
+    response_model=ReconciliationMatchResponse,
+    status_code=201,
+)
+def generate_reconciliation_match_run(
+    request: Request,
+    client_id: UUID,
+    bank_transaction_id: UUID,
+    principal: Annotated[
+        Principal,
+        Depends(require_permission(Permission.RUN_RECONCILIATION_MATCHING)),
+    ],
+    session: Annotated[Session, Depends(get_session)],
+) -> ReconciliationMatchResponse:
+    bundle = ReconciliationApiService(session=session).generate_match_run(
+        principal=principal,
+        client_id=client_id,
+        bank_transaction_id=bank_transaction_id,
+        request_id=get_request_id(request),
+    )
+    return ReconciliationMatchResponse(
+        run=ReconciliationMatchRunResponse.from_record(bundle.run),
+        candidates=[
+            ReconciliationCandidateResponse.from_record(candidate)
+            for candidate in bundle.candidates
+        ],
+    )
 
 
 @router.get(

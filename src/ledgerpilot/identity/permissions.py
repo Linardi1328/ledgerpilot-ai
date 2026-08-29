@@ -25,6 +25,7 @@ class Permission(StrEnum):
     VIEW_AUDIT_HISTORY = "view_audit_history"
     IMPORT_BANK_TRANSACTIONS = "import_bank_transactions"
     VIEW_BANK_TRANSACTIONS = "view_bank_transactions"
+    RUN_RECONCILIATION_MATCHING = "run_reconciliation_matching"
     VIEW_RECONCILIATION_MATCHES = "view_reconciliation_matches"
     MANAGE_USERS = "manage_users"
     MANAGE_CONFIGURATION = "manage_configuration"

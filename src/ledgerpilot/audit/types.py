@@ -26,3 +26,4 @@ class AuditEventType(StrEnum):
     REVIEW_TASK_APPROVED = "review_task_approved"
     REVIEW_TASK_REJECTED = "review_task_rejected"
     BANK_IMPORT_RECORDED = "bank_import_recorded"
+    RECONCILIATION_MATCH_GENERATED = "reconciliation_match_generated"

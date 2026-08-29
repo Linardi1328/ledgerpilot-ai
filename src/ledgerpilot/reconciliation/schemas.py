@@ -230,3 +230,8 @@ class ReconciliationCandidateResponse(BaseModel):
             target_counterparty_name=record.target_counterparty_name,
             created_at=record.created_at,
         )
+
+
+class ReconciliationMatchResponse(BaseModel):
+    run: ReconciliationMatchRunResponse
+    candidates: list[ReconciliationCandidateResponse]
