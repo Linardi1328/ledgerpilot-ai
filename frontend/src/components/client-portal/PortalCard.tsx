@@ -134,7 +134,7 @@ export function PortalSuccess({
       <div className="space-y-1">
         <h3 className="font-bold text-base text-slate-100">Information Response Submitted</h3>
         <p className="text-xs text-slate-300 max-w-md mx-auto">
-          Your clarification has been recorded and submitted to the accounting review team. The review task has returned to the review queue.
+          Your clarification has been recorded and returned to the accounting review workflow.
         </p>
       </div>
 
