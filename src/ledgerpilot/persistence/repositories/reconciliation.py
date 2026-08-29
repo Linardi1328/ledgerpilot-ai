@@ -75,6 +75,39 @@ class ReconciliationRepository:
         )
         return self._session.scalar(statement)
 
+    def get_import_batch(
+        self,
+        *,
+        firm_id: UUID,
+        client_id: UUID,
+        import_batch_id: UUID,
+    ) -> BankImportBatchRecord | None:
+        statement = select(BankImportBatchRecord).where(
+            BankImportBatchRecord.id == import_batch_id,
+            BankImportBatchRecord.firm_id == firm_id,
+            BankImportBatchRecord.client_id == client_id,
+        )
+        return self._session.scalar(statement)
+
+    def list_import_batches(
+        self,
+        *,
+        firm_id: UUID,
+        client_id: UUID,
+    ) -> list[BankImportBatchRecord]:
+        statement = (
+            select(BankImportBatchRecord)
+            .where(
+                BankImportBatchRecord.firm_id == firm_id,
+                BankImportBatchRecord.client_id == client_id,
+            )
+            .order_by(
+                BankImportBatchRecord.created_at.desc(),
+                BankImportBatchRecord.id.desc(),
+            )
+        )
+        return list(self._session.scalars(statement))
+
     def get_transaction_by_source_id(
         self,
         *,
@@ -90,6 +123,20 @@ class ReconciliationRepository:
             BankTransactionRecord.provider_name == provider_name,
             BankTransactionRecord.account_reference == account_reference,
             BankTransactionRecord.source_transaction_id == source_transaction_id,
+        )
+        return self._session.scalar(statement)
+
+    def get_transaction(
+        self,
+        *,
+        firm_id: UUID,
+        client_id: UUID,
+        bank_transaction_id: UUID,
+    ) -> BankTransactionRecord | None:
+        statement = select(BankTransactionRecord).where(
+            BankTransactionRecord.id == bank_transaction_id,
+            BankTransactionRecord.firm_id == firm_id,
+            BankTransactionRecord.client_id == client_id,
         )
         return self._session.scalar(statement)
 
@@ -182,6 +229,22 @@ class ReconciliationRepository:
             )
         )
         return list(self._session.scalars(statement))
+
+    def get_match_run(
+        self,
+        *,
+        firm_id: UUID,
+        client_id: UUID,
+        bank_transaction_id: UUID,
+        match_run_id: UUID,
+    ) -> ReconciliationMatchRunRecord | None:
+        statement = select(ReconciliationMatchRunRecord).where(
+            ReconciliationMatchRunRecord.id == match_run_id,
+            ReconciliationMatchRunRecord.bank_transaction_id == bank_transaction_id,
+            ReconciliationMatchRunRecord.firm_id == firm_id,
+            ReconciliationMatchRunRecord.client_id == client_id,
+        )
+        return self._session.scalar(statement)
 
     def list_candidates_for_run(
         self,

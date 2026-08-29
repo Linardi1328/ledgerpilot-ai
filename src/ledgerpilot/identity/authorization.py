@@ -34,6 +34,9 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.ESCALATE_TRANSACTION,
             Permission.REQUEST_INFORMATION,
             Permission.VIEW_AUDIT_HISTORY,
+            Permission.IMPORT_BANK_TRANSACTIONS,
+            Permission.VIEW_BANK_TRANSACTIONS,
+            Permission.VIEW_RECONCILIATION_MATCHES,
             Permission.EXPORT_APPROVED_ENTRIES,
         }
     ),
@@ -56,6 +59,9 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.ESCALATE_TRANSACTION,
             Permission.REQUEST_INFORMATION,
             Permission.VIEW_AUDIT_HISTORY,
+            Permission.IMPORT_BANK_TRANSACTIONS,
+            Permission.VIEW_BANK_TRANSACTIONS,
+            Permission.VIEW_RECONCILIATION_MATCHES,
             Permission.EXPORT_APPROVED_ENTRIES,
             Permission.CORRECT_APPROVED_RECORDS,
         }
@@ -77,6 +83,8 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.VIEW_REVIEW_TASK,
             Permission.VIEW_REVIEW_HISTORY,
             Permission.VIEW_AUDIT_HISTORY,
+            Permission.VIEW_BANK_TRANSACTIONS,
+            Permission.VIEW_RECONCILIATION_MATCHES,
         }
     ),
 }

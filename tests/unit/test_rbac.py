@@ -37,6 +37,9 @@ def test_firm_admin_is_not_implicit_allow_all_for_accounting_permissions() -> No
     assert not has_permission(admin, Permission.APPROVE_ORDINARY_TRANSACTION)
     assert not has_permission(admin, Permission.APPROVE_HIGH_RISK_TRANSACTION)
     assert not has_permission(admin, Permission.CORRECT_APPROVED_RECORDS)
+    assert not has_permission(admin, Permission.IMPORT_BANK_TRANSACTIONS)
+    assert not has_permission(admin, Permission.VIEW_BANK_TRANSACTIONS)
+    assert not has_permission(admin, Permission.VIEW_RECONCILIATION_MATCHES)
 
 
 def test_auditor_remains_read_only_but_can_view_authorized_review_history() -> None:
@@ -45,6 +48,9 @@ def test_auditor_remains_read_only_but_can_view_authorized_review_history() -> N
     assert has_permission(auditor, Permission.VIEW_DOCUMENTS)
     assert has_permission(auditor, Permission.VIEW_REVIEW_TASK)
     assert has_permission(auditor, Permission.VIEW_REVIEW_HISTORY)
+    assert has_permission(auditor, Permission.VIEW_BANK_TRANSACTIONS)
+    assert has_permission(auditor, Permission.VIEW_RECONCILIATION_MATCHES)
+    assert not has_permission(auditor, Permission.IMPORT_BANK_TRANSACTIONS)
     assert not has_permission(auditor, Permission.CREATE_REVIEW_TASK)
     assert not has_permission(auditor, Permission.ADD_REVIEW_COMMENT)
     assert not has_permission(auditor, Permission.REJECT_TRANSACTION)
@@ -64,6 +70,9 @@ def test_client_submitter_can_only_respond_to_information_requests_in_review_wor
     assert not has_permission(submitter, Permission.ADD_REVIEW_COMMENT)
     assert not has_permission(submitter, Permission.REQUEST_INFORMATION)
     assert not has_permission(submitter, Permission.VIEW_REVIEW_HISTORY)
+    assert not has_permission(submitter, Permission.IMPORT_BANK_TRANSACTIONS)
+    assert not has_permission(submitter, Permission.VIEW_BANK_TRANSACTIONS)
+    assert not has_permission(submitter, Permission.VIEW_RECONCILIATION_MATCHES)
     assert not has_permission(submitter, Permission.MANAGE_CONFIGURATION)
 
 
@@ -79,6 +88,9 @@ def test_accountant_and_senior_reviewer_have_review_workflow_permissions() -> No
         assert has_permission(principal, Permission.REQUEST_INFORMATION)
         assert has_permission(principal, Permission.REJECT_TRANSACTION)
         assert has_permission(principal, Permission.ESCALATE_TRANSACTION)
+        assert has_permission(principal, Permission.IMPORT_BANK_TRANSACTIONS)
+        assert has_permission(principal, Permission.VIEW_BANK_TRANSACTIONS)
+        assert has_permission(principal, Permission.VIEW_RECONCILIATION_MATCHES)
 
 
 def test_only_senior_reviewer_has_high_risk_approval_permission() -> None:
