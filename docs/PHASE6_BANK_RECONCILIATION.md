@@ -12,7 +12,7 @@ A candidate score is never an approval signal and never creates a reconciliation
 
 ## Implemented Foundation
 
-The current Phase 6 Draft PR now establishes the provider-independent domain, deterministic matching, and persistence/idempotency boundary:
+The current Phase 6 Draft PR establishes the provider-independent domain, deterministic matching, persistence/idempotency, and the first API/RBAC boundary:
 
 - immutable-style imported bank transaction value objects;
 - provider-attributable import batches;
@@ -29,12 +29,16 @@ The current Phase 6 Draft PR now establishes the provider-independent domain, de
 - database-enforced cross-import idempotency by firm, client, provider, account, and source transaction identifier;
 - database-enforced tenant lineage from import batch to transaction to match run to candidate;
 - database-enforced candidate linkage to the exact Phase 5 review outcome, decision, and document scope;
-- PostgreSQL constraint tests and migration downgrade/re-upgrade coverage.
+- client-scoped synthetic import and read APIs;
+- explicit Phase 6 bank-import/read permissions, with Auditors kept read-only and Client Submitters excluded;
+- a `bank_import_recorded` audit event with non-sensitive lineage metadata;
+- frontend permission-enum compatibility for authoritative `/context` payloads, without Phase 6 UI behavior;
+- PostgreSQL constraint tests, API integration tests, and migration downgrade/re-upgrade coverage.
 
 ## Non-Negotiable Invariants
 
 1. No real bank data, credentials, account numbers, statements, or client information are committed.
-2. Money uses `Decimal`; `float` monetary inputs are rejected.
+2. Money uses `Decimal`; JSON numeric and binary `float` monetary inputs are rejected at controlled boundaries.
 3. Cross-firm and cross-client targets can never become reconciliation candidates.
 4. Amount, currency, and transaction direction must match exactly in this foundation slice.
 5. Candidate generation never produces an approved/reconciled state.
@@ -43,6 +47,7 @@ The current Phase 6 Draft PR now establishes the provider-independent domain, de
 8. Re-importing the same provider transaction for the same tenant and account cannot create a duplicate bank transaction.
 9. Match attempts remain append-only so an unmatched result is distinguishable from a transaction that has never been evaluated.
 10. Human review remains required before any future reconciliation outcome can become terminal.
+11. Callers cannot manufacture an "approved target" through the public API; authoritative target projection must come from Phase 5 approved outcomes.
 
 ## Matching Policy
 
@@ -69,21 +74,48 @@ A deterministic score then uses same/near date, normalized reference evidence, a
 
 The persistence slice intentionally does not update or overwrite an earlier match run when matching is repeated. A later run is additional evidence and remains distinguishable from earlier evaluations.
 
+## Current API and RBAC Boundary
+
+The API root is:
+
+`/api/v1/clients/{client_id}/bank-reconciliation`
+
+Implemented operations are:
+
+- `POST /imports/synthetic`;
+- `GET /imports`;
+- `GET /imports/{import_batch_id}`;
+- `GET /imports/{import_batch_id}/transactions`;
+- `GET /transactions/{bank_transaction_id}`;
+- `GET /transactions/{bank_transaction_id}/match-runs`;
+- `GET /transactions/{bank_transaction_id}/match-runs/{match_run_id}/candidates`.
+
+The synthetic import route is disabled in production. Exact replay of the same canonical provider batch returns the already-persisted identities; changed data under the same batch reference or duplicate provider transaction identity is rejected.
+
+Current permissions are:
+
+- `import_bank_transactions`;
+- `view_bank_transactions`;
+- `view_reconciliation_matches`.
+
+Accountants and Senior Reviewers receive all three. Auditors receive the two read permissions only. Firm Admins and Client Submitters receive none of these Phase 6 permissions.
+
+There is intentionally no public match-generation or reconciliation-approval mutation yet. The next slice must derive approved matching targets server-side from attributable Phase 5 approved outcomes before exposing candidate generation.
+
 ## Deferred to Later Phase 6 Slices
 
 The following remain intentionally unimplemented:
 
-- reconciliation API routes and RBAC permissions;
+- authoritative approved-target projection from Phase 5 `approved` / `corrected_and_approved` outcomes;
+- public persisted match-generation using that server-derived projection;
 - review, dispute, approval, or terminal reconciliation outcomes;
 - reconciliation audit-event persistence for human actions;
 - real bank connectors, OAuth, credentials, or production bank feeds;
 - automatic posting, payments, settlement, or external accounting export;
 - frontend reconciliation workspace.
 
-These should be added incrementally after the persistence contract passes CI and independent review.
-
 ## Testing Direction
 
-Backend accounting, idempotency, migration, and tenant-isolation invariants are tested as part of each Phase 6 development slice.
+Backend accounting, idempotency, migration, API, RBAC, and tenant-isolation invariants are tested as part of each Phase 6 development slice.
 
 Broader end-to-end and browser testing of the merged web application remains a later dedicated testing phase, after the Phase 6 API contract and reconciliation workspace are stable.
