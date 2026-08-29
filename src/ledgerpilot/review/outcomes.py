@@ -86,28 +86,6 @@ class ReviewOutcomeService(ReviewServiceSupport):
                 message="Review task already has a terminal outcome.",
             )
 
-        risk_class = ReviewRiskClass(task.risk_class)
-        if Permission.APPROVE_ORDINARY_TRANSACTION not in principal.permissions:
-            raise ApiError(status_code=403, code="forbidden", message="Access denied.")
-        if risk_class == ReviewRiskClass.BLOCKED:
-            raise ApiError(
-                status_code=409,
-                code="review_approval_blocked",
-                message="Deterministic controls block approval for this accounting decision.",
-            )
-        if risk_class == ReviewRiskClass.SENIOR_REVIEW_REQUIRED:
-            if (
-                Permission.APPROVE_HIGH_RISK_TRANSACTION not in principal.permissions
-                or principal.role != Role.SENIOR_REVIEWER
-                or task.status != ReviewTaskStatus.ESCALATED.value
-                or task.escalation_state != ReviewEscalationState.SENIOR_REVIEW.value
-            ):
-                raise ApiError(
-                    status_code=403,
-                    code="senior_review_required",
-                    message="This review requires approval by the assigned senior reviewer.",
-                )
-
         decision = self._accounting.get_run_for_extraction(
             firm_id=task.firm_id,
             client_id=task.client_id,
@@ -164,6 +142,28 @@ class ReviewOutcomeService(ReviewServiceSupport):
                 code="decision_stale_after_correction",
                 message="A newer extraction correction requires a fresh accounting decision.",
             )
+
+        risk_class = ReviewRiskClass(task.risk_class)
+        if Permission.APPROVE_ORDINARY_TRANSACTION not in principal.permissions:
+            raise ApiError(status_code=403, code="forbidden", message="Access denied.")
+        if risk_class == ReviewRiskClass.BLOCKED:
+            raise ApiError(
+                status_code=409,
+                code="review_approval_blocked",
+                message="Deterministic controls block approval for this accounting decision.",
+            )
+        if risk_class == ReviewRiskClass.SENIOR_REVIEW_REQUIRED:
+            if (
+                Permission.APPROVE_HIGH_RISK_TRANSACTION not in principal.permissions
+                or principal.role != Role.SENIOR_REVIEWER
+                or task.status != ReviewTaskStatus.ESCALATED.value
+                or task.escalation_state != ReviewEscalationState.SENIOR_REVIEW.value
+            ):
+                raise ApiError(
+                    status_code=403,
+                    code="senior_review_required",
+                    message="This review requires approval by the assigned senior reviewer.",
+                )
 
         outcome_type = (
             ReviewOutcomeType.CORRECTED_AND_APPROVED if corrections else ReviewOutcomeType.APPROVED
