@@ -1,0 +1,54 @@
+name: Temporary Phase 5 stale-source ordering fix
+
+on:
+  push:
+    branches:
+      - review/phase-05-human-review-completion
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: review/phase-05-human-review-completion
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Move stale-source check before risk authority check
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/ledgerpilot/review/outcomes.py")
+          text = path.read_text()
+          risk_marker = "        risk_class = ReviewRiskClass(task.risk_class)\n"
+          decision_marker = "        decision = self._accounting.get_run_for_extraction(\n"
+          outcome_marker = "        outcome_type = (\n"
+
+          risk_start = text.index(risk_marker)
+          decision_start = text.index(decision_marker, risk_start)
+          risk_block = text[risk_start:decision_start]
+          if text.count(risk_marker) != 1 or text.count(outcome_marker) != 1:
+              raise SystemExit("Unexpected approval-flow shape; refusing scripted edit")
+
+          text = text[:risk_start] + text[decision_start:]
+          outcome_start = text.index(outcome_marker)
+          text = text[:outcome_start] + risk_block + text[outcome_start:]
+          path.write_text(text)
+          PY
+          python -m pip install ruff==0.16.5
+          python -m ruff format src/ledgerpilot/review/outcomes.py
+      - name: Commit exact source change
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/ledgerpilot/review/outcomes.py
+          git diff --cached --quiet && exit 1
+          git commit -m "fix: reject stale review decisions before authority routing"
+          git push origin HEAD:review/phase-05-human-review-completion
