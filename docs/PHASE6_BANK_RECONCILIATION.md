@@ -118,4 +118,4 @@ The following remain intentionally unimplemented:
 
 Backend accounting, idempotency, migration, API, RBAC, and tenant-isolation invariants are tested as part of each Phase 6 development slice.
 
-Broader end-to-end and browser testing of the merged web application remains a later dedicated testing phase, after the Phase 6 API contract and reconciliation workspace are stable.
+Broader end-to-end and browser testing of the merged web application remains a later dedicated testing phase, after the Phase 6 API contract and reconciliation workspace are stable. That sequencing does not defer backend safety tests; it avoids freezing browser flows before the Phase 6 workflow contract is complete.
