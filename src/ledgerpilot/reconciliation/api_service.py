@@ -269,8 +269,7 @@ class ReconciliationApiService:
             return False
 
         existing_by_source_id = {
-            transaction.source_transaction_id: transaction
-            for transaction in existing_transactions
+            transaction.source_transaction_id: transaction for transaction in existing_transactions
         }
         for transaction in batch.transactions:
             persisted = existing_by_source_id.get(transaction.source_transaction_id.strip())
