@@ -84,9 +84,7 @@ def test_human_can_select_candidate_and_approve_terminal_reconciliation(
 
     events = [
         event
-        for event in AuditRepository(db_session).list_for_firm(
-            firm_id=identity_seed.firm_a.id
-        )
+        for event in AuditRepository(db_session).list_for_firm(firm_id=identity_seed.firm_a.id)
         if event.target_id == review["id"]
     ]
     assert [event.event_type for event in events] == [
