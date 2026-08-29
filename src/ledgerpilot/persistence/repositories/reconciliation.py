@@ -134,6 +134,7 @@ class ReconciliationRepository:
             matcher_version=result.matcher_version,
         )
         self._session.add(run)
+        self._session.flush()
 
         for candidate in result.candidates:
             target = candidate.target
