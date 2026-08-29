@@ -23,3 +23,23 @@ class AuditRepository:
             .order_by(AuditEvent.occurred_at.asc())
         )
         return list(self._session.scalars(statement))
+
+    def list_for_target(
+        self,
+        *,
+        firm_id: UUID,
+        client_id: UUID,
+        target_type: str,
+        target_id: str,
+    ) -> list[AuditEvent]:
+        statement = (
+            select(AuditEvent)
+            .where(
+                AuditEvent.firm_id == firm_id,
+                AuditEvent.client_id == client_id,
+                AuditEvent.target_type == target_type,
+                AuditEvent.target_id == target_id,
+            )
+            .order_by(AuditEvent.occurred_at.asc(), AuditEvent.id.asc())
+        )
+        return list(self._session.scalars(statement))

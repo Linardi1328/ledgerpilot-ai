@@ -33,7 +33,12 @@ EXPECTED_PHASE_4_TABLES = EXPECTED_PHASE_3_TABLES | {
     "proposed_journals",
 }
 
-EXPECTED_PHASE_5_TABLES = EXPECTED_PHASE_4_TABLES | {"review_tasks"}
+EXPECTED_PHASE_5_FIRST_SLICE_TABLES = EXPECTED_PHASE_4_TABLES | {"review_tasks"}
+
+EXPECTED_PHASE_5_TABLES = EXPECTED_PHASE_5_FIRST_SLICE_TABLES | {
+    "review_comments",
+    "review_outcomes",
+}
 
 EXPECTED_TABLES_AFTER_PHASE_3_DOWNGRADE = {
     "alembic_version",
@@ -68,6 +73,8 @@ EXPECTED_TIMEZONE_AWARE_TIMESTAMP_COLUMNS = {
     "firms.updated_at",
     "proposed_journal_lines.created_at",
     "proposed_journals.created_at",
+    "review_comments.created_at",
+    "review_outcomes.created_at",
     "review_tasks.created_at",
     "review_tasks.updated_at",
     "users.created_at",
@@ -93,9 +100,26 @@ def test_initial_migration_upgrade_downgrade_and_schema(
     try:
         tables = set(inspect(engine).get_table_names())
         assert tables == EXPECTED_PHASE_5_TABLES
+        review_columns = {
+            column["name"] for column in inspect(engine).get_columns("review_tasks")
+        }
+        assert "risk_class" in review_columns
     finally:
         engine.dispose()
 
+    command.downgrade(config, "0005_phase_5")
+    engine = create_engine(database_url)
+    try:
+        tables_after_completion_downgrade = set(inspect(engine).get_table_names())
+        assert tables_after_completion_downgrade == EXPECTED_PHASE_5_FIRST_SLICE_TABLES
+        review_columns = {
+            column["name"] for column in inspect(engine).get_columns("review_tasks")
+        }
+        assert "risk_class" not in review_columns
+    finally:
+        engine.dispose()
+
+    command.upgrade(config, "head")
     command.downgrade(config, "0004_phase_4")
     engine = create_engine(database_url)
     try:
