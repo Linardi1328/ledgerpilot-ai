@@ -41,8 +41,10 @@ class ReconciliationMatchingPolicy:
         )
         if any(not isinstance(value, Decimal) for value in decimal_fields):
             raise TypeError("matching scores must use Decimal")
-        if not Decimal("0") <= self.minimum_candidate_score <= Decimal("1"):
-            raise ValueError("minimum_candidate_score must be between zero and one")
+        if any(not value.is_finite() for value in decimal_fields):
+            raise ValueError("matching scores must be finite")
+        if any(not Decimal("0") <= value <= Decimal("1") for value in decimal_fields):
+            raise ValueError("matching scores must be between zero and one")
 
 
 class DeterministicReconciliationMatcher:

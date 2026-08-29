@@ -28,6 +28,31 @@ class ReconciliationMatchReason(StrEnum):
     EXACT_COUNTERPARTY = "exact_counterparty"
 
 
+def _validate_uuid(value: UUID, field_name: str) -> None:
+    if not isinstance(value, UUID):
+        raise TypeError(f"{field_name} must be UUID")
+
+
+def _validate_money(amount: Decimal) -> None:
+    if not isinstance(amount, Decimal):
+        raise TypeError("amount must be Decimal; binary floating point is not permitted")
+    if not amount.is_finite():
+        raise ValueError("amount must be finite")
+    if amount <= Decimal("0"):
+        raise ValueError("amount must be greater than zero")
+
+
+def _validate_currency(currency: str) -> None:
+    normalized = currency.strip()
+    if len(normalized) != 3 or not normalized.isalpha():
+        raise ValueError("currency must be a three-letter alphabetic code")
+
+
+def _validate_direction(direction: BankTransactionDirection) -> None:
+    if not isinstance(direction, BankTransactionDirection):
+        raise TypeError("direction must be BankTransactionDirection")
+
+
 @dataclass(frozen=True)
 class BankImportRequest:
     firm_id: UUID
@@ -37,6 +62,8 @@ class BankImportRequest:
     period_end: date
 
     def __post_init__(self) -> None:
+        _validate_uuid(self.firm_id, "firm_id")
+        _validate_uuid(self.client_id, "client_id")
         if not self.account_reference.strip():
             raise ValueError("account_reference must not be blank")
         if self.period_end < self.period_start:
@@ -58,14 +85,13 @@ class ImportedBankTransaction:
     value_date: date | None = None
 
     def __post_init__(self) -> None:
+        _validate_uuid(self.firm_id, "firm_id")
+        _validate_uuid(self.client_id, "client_id")
+        _validate_direction(self.direction)
+        _validate_money(self.amount)
+        _validate_currency(self.currency)
         if not self.source_transaction_id.strip():
             raise ValueError("source_transaction_id must not be blank")
-        if not isinstance(self.amount, Decimal):
-            raise TypeError("amount must be Decimal; binary floating point is not permitted")
-        if self.amount <= Decimal("0"):
-            raise ValueError("amount must be greater than zero")
-        if len(self.currency.strip()) != 3:
-            raise ValueError("currency must be a three-letter code")
         if not self.description.strip():
             raise ValueError("description must not be blank")
 
@@ -87,6 +113,8 @@ class BankImportBatch:
     transactions: tuple[ImportedBankTransaction, ...]
 
     def __post_init__(self) -> None:
+        _validate_uuid(self.firm_id, "firm_id")
+        _validate_uuid(self.client_id, "client_id")
         if not self.provider_name.strip():
             raise ValueError("provider_name must not be blank")
         if not self.provider_version.strip():
@@ -123,12 +151,14 @@ class ApprovedReconciliationTarget:
     counterparty_name: str | None = None
 
     def __post_init__(self) -> None:
-        if not isinstance(self.amount, Decimal):
-            raise TypeError("amount must be Decimal; binary floating point is not permitted")
-        if self.amount <= Decimal("0"):
-            raise ValueError("amount must be greater than zero")
-        if len(self.currency.strip()) != 3:
-            raise ValueError("currency must be a three-letter code")
+        _validate_uuid(self.firm_id, "firm_id")
+        _validate_uuid(self.client_id, "client_id")
+        _validate_uuid(self.review_outcome_id, "review_outcome_id")
+        _validate_uuid(self.decision_run_id, "decision_run_id")
+        _validate_uuid(self.document_id, "document_id")
+        _validate_direction(self.direction)
+        _validate_money(self.amount)
+        _validate_currency(self.currency)
 
     @property
     def normalized_currency(self) -> str:
@@ -146,8 +176,14 @@ class ReconciliationCandidateDecision:
     def __post_init__(self) -> None:
         if not isinstance(self.score, Decimal):
             raise TypeError("score must be Decimal")
+        if not self.score.is_finite():
+            raise ValueError("score must be finite")
         if not Decimal("0") <= self.score <= Decimal("1"):
             raise ValueError("score must be between zero and one")
+        if not self.reasons:
+            raise ValueError("candidate must retain at least one match reason")
+        if not self.matcher_name.strip() or not self.matcher_version.strip():
+            raise ValueError("candidate matcher lineage must not be blank")
 
 
 @dataclass(frozen=True)
@@ -157,6 +193,10 @@ class ReconciliationMatchResult:
     candidates: tuple[ReconciliationCandidateDecision, ...]
 
     def __post_init__(self) -> None:
+        if not self.source_transaction_id.strip():
+            raise ValueError("source_transaction_id must not be blank")
+        if not isinstance(self.status, ReconciliationCandidateStatus):
+            raise TypeError("status must be ReconciliationCandidateStatus")
         if self.status is ReconciliationCandidateStatus.UNMATCHED and self.candidates:
             raise ValueError("unmatched result cannot contain candidates")
         if (
