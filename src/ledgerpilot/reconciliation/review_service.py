@@ -22,10 +22,10 @@ from ledgerpilot.persistence.repositories.reconciliation_review import (
     ReconciliationReviewRepository,
 )
 from ledgerpilot.reconciliation.states import (
+    TERMINAL_RECONCILIATION_REVIEW_STATUSES,
     ReconciliationOutcomeType,
     ReconciliationReviewActionType,
     ReconciliationReviewStatus,
-    TERMINAL_RECONCILIATION_REVIEW_STATUSES,
 )
 
 
