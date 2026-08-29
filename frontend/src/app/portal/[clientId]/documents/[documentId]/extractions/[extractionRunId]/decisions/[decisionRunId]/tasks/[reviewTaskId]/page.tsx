@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback, use } from "react";
 import { useAuth } from "@/lib/context/AuthContext";
-import { Role } from "@/types/roles";
+import { Permission, Role } from "@/types/roles";
 import {
   DocumentMetadataResponse,
   ReviewCommentResponse,
@@ -34,7 +34,7 @@ export default function ClientSubmitterPortalPage({
 }) {
   const params = use(paramsPromise);
   const router = useRouter();
-  const { mode, effectiveRole, devSubject, firmId, connectionStatus } = useAuth();
+  const { mode, effectiveRole, effectivePrincipal, devSubject, firmId, connectionStatus } = useAuth();
 
   const lineage: ReviewTaskLineage = React.useMemo(() => ({
     clientId: params.clientId,
@@ -50,9 +50,18 @@ export default function ClientSubmitterPortalPage({
   const [error, setError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
 
+  // Authoritative Role and Permission guards
+  const isClientSubmitter = effectiveRole === Role.CLIENT_SUBMITTER;
+  const canViewInquiry =
+    isClientSubmitter &&
+    (effectivePrincipal?.permissions.includes(Permission.VIEW_INFORMATION_REQUEST) ?? false);
+  const canRespondInquiry =
+    canViewInquiry &&
+    (effectivePrincipal?.permissions.includes(Permission.RESPOND_TO_INFORMATION_REQUEST) ?? false);
+
   const loadPortalData = useCallback(async () => {
-    // If not a Client Submitter, do not fetch
-    if (effectiveRole !== Role.CLIENT_SUBMITTER) {
+    // If not authorized to view information requests, fail closed immediately without fetching
+    if (!canViewInquiry) {
       setIsLoading(false);
       return;
     }
@@ -93,13 +102,18 @@ export default function ClientSubmitterPortalPage({
     } finally {
       setIsLoading(false);
     }
-  }, [mode, effectiveRole, lineage, devSubject, firmId]);
+  }, [mode, canViewInquiry, lineage, devSubject, firmId]);
 
   useEffect(() => {
     loadPortalData();
   }, [loadPortalData]);
 
   const handleResponseSubmit = async (responseBody: string) => {
+    if (!canRespondInquiry) {
+      setError("You do not hold permission to respond to information requests.");
+      return;
+    }
+
     if (mode === "mock") {
       mockDataStore.respondToInfo(lineage, responseBody);
       setIsSuccess(true);
@@ -113,7 +127,7 @@ export default function ClientSubmitterPortalPage({
     setIsSuccess(true);
   };
 
-  // Route-Level Authority Guard
+  // Route-Level Authority Guards
   if (mode === "live" && (effectiveRole === null || connectionStatus !== "connected")) {
     return (
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-8 text-center space-y-4 max-w-xl mx-auto shadow-2xl">
@@ -124,13 +138,15 @@ export default function ClientSubmitterPortalPage({
         <p className="text-xs text-slate-300 leading-relaxed">
           {connectionStatus === "unauthenticated"
             ? "Authentication required to access client portal inquiries."
+            : connectionStatus === "invalid_context"
+            ? "Authoritative context payload failed validation. Access locked."
             : "The FastAPI backend server is unreachable. Live mode failed closed."}
         </p>
       </div>
     );
   }
 
-  if (effectiveRole !== Role.CLIENT_SUBMITTER) {
+  if (!isClientSubmitter) {
     return (
       <div className="bg-slate-900 border border-purple-900/60 rounded-xl p-8 text-center space-y-4 max-w-xl mx-auto shadow-2xl">
         <div className="w-12 h-12 rounded-full bg-purple-950 border border-purple-800 flex items-center justify-center mx-auto text-purple-400">
@@ -139,6 +155,20 @@ export default function ClientSubmitterPortalPage({
         <h2 className="font-bold text-base text-slate-100">Restricted Submitter Access</h2>
         <p className="text-xs text-slate-300 leading-relaxed">
           Your current verified role is not authorized to access the Client Information Portal. This route requires an authenticated <strong>Client Submitter</strong> principal.
+        </p>
+      </div>
+    );
+  }
+
+  if (!canViewInquiry) {
+    return (
+      <div className="bg-slate-900 border border-purple-900/60 rounded-xl p-8 text-center space-y-4 max-w-xl mx-auto shadow-2xl">
+        <div className="w-12 h-12 rounded-full bg-purple-950 border border-purple-800 flex items-center justify-center mx-auto text-purple-400">
+          <AlertCircle className="w-6 h-6" />
+        </div>
+        <h2 className="font-bold text-base text-slate-100">Permission Required</h2>
+        <p className="text-xs text-slate-300 leading-relaxed">
+          Your account holds the Client Submitter role but lacks the required <code>VIEW_INFORMATION_REQUEST</code> permission to inspect inquiry content.
         </p>
       </div>
     );
@@ -168,6 +198,7 @@ export default function ClientSubmitterPortalPage({
       <PortalCard
         documentFilename={documentMeta?.submitted_filename}
         inquiry={inquiry}
+        canRespond={canRespondInquiry}
         onSubmitResponse={handleResponseSubmit}
       />
     </div>

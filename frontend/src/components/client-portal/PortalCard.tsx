@@ -2,15 +2,17 @@
 
 import React, { useState } from "react";
 import { ReviewCommentResponse } from "@/types/api";
-import { Send, FileText, HelpCircle } from "lucide-react";
+import { Send, FileText, HelpCircle, ShieldAlert } from "lucide-react";
 
 export function PortalCard({
   documentFilename,
   inquiry,
+  canRespond = true,
   onSubmitResponse,
 }: {
   documentFilename?: string;
   inquiry: ReviewCommentResponse | null;
+  canRespond?: boolean;
   onSubmitResponse: (responseBody: string) => Promise<void>;
 }) {
   const [responseBody, setResponseBody] = useState("");
@@ -19,6 +21,10 @@ export function PortalCard({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canRespond) {
+      setError("You do not hold permission to respond to information requests.");
+      return;
+    }
     if (!responseBody.trim()) {
       setError("Please provide a response before submitting.");
       return;
@@ -63,6 +69,15 @@ export function PortalCard({
         </div>
       )}
 
+      {!canRespond && (
+        <div className="bg-amber-950/60 border border-amber-800 p-3 rounded-lg flex items-center space-x-2 text-xs text-amber-200">
+          <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
+          <span>
+            You hold permission to view this inquiry but lack permission to submit clarifications (<code>RESPOND_TO_INFORMATION_REQUEST</code> required).
+          </span>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
           <label htmlFor="portalResponseInput" className="block text-xs font-semibold text-slate-300 mb-1">
@@ -73,10 +88,14 @@ export function PortalCard({
             rows={4}
             value={responseBody}
             onChange={(e) => setResponseBody(e.target.value)}
-            placeholder="Type your explanation or response to the accounting inquiry here..."
+            placeholder={
+              canRespond
+                ? "Type your explanation or response to the accounting inquiry here..."
+                : "Response disabled due to missing submit permissions."
+            }
             required
-            disabled={isSubmitting || !inquiry}
-            className="w-full bg-slate-950 border border-slate-800 rounded p-3 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+            disabled={isSubmitting || !inquiry || !canRespond}
+            className="w-full bg-slate-950 border border-slate-800 rounded p-3 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
           />
         </div>
 
@@ -89,8 +108,8 @@ export function PortalCard({
         <div className="flex items-center justify-end">
           <button
             type="submit"
-            disabled={!responseBody.trim() || isSubmitting || !inquiry}
-            className="px-5 py-2 rounded bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition flex items-center space-x-1.5 disabled:opacity-50"
+            disabled={!responseBody.trim() || isSubmitting || !inquiry || !canRespond}
+            className="px-5 py-2 rounded bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition flex items-center space-x-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Send className="w-3.5 h-3.5" />
             <span>{isSubmitting ? "Submitting..." : "Submit Information Response"}</span>

@@ -278,7 +278,10 @@ export default function ReviewWorkspacePage({
     await loadData();
   };
 
-  const handleGenerateFreshDecision = async (setStep: (step: string) => void) => {
+  const handleGenerateFreshDecision = async (
+    setStep: (step: string) => void,
+    existingDecisionId?: string | null
+  ) => {
     if (mode === "mock") {
       setStep("1/3: Evaluating fresh deterministic decision...");
       await new Promise((r) => setTimeout(r, 200));
@@ -290,38 +293,53 @@ export default function ReviewWorkspacePage({
       return;
     }
 
-    setStep("1/3: Generating fresh accounting decision run from corrected source...");
-    const freshDecision = await createAccountingDecisionRun(
-      lineage.clientId,
-      lineage.documentId,
-      lineage.extractionRunId,
-      defaultApiClient,
-      { devSubject, firmId }
-    );
+    let decisionRunId = existingDecisionId;
+
+    if (!decisionRunId) {
+      setStep("1/3: Generating fresh accounting decision run from corrected source...");
+      const freshDecision = await createAccountingDecisionRun(
+        lineage.clientId,
+        lineage.documentId,
+        lineage.extractionRunId,
+        defaultApiClient,
+        { devSubject, firmId }
+      );
+      decisionRunId = freshDecision.id;
+    }
 
     setStep("2/3: Creating new review task for fresh decision...");
-    const freshTask = await createReviewTask(
-      {
+    try {
+      const freshTask = await createReviewTask(
+        {
+          clientId: lineage.clientId,
+          documentId: lineage.documentId,
+          extractionRunId: lineage.extractionRunId,
+          decisionRunId,
+        },
+        effectivePrincipal?.membership_id,
+        defaultApiClient,
+        { devSubject, firmId }
+      );
+
+      setStep("3/3: Redirecting to new review task...");
+      const freshUrl = buildLiveReviewTaskUrl({
         clientId: lineage.clientId,
         documentId: lineage.documentId,
         extractionRunId: lineage.extractionRunId,
-        decisionRunId: freshDecision.id,
-      },
-      effectivePrincipal?.membership_id,
-      defaultApiClient,
-      { devSubject, firmId }
-    );
+        decisionRunId,
+        reviewTaskId: freshTask.id,
+      });
 
-    setStep("3/3: Redirecting to new review task...");
-    const freshUrl = buildLiveReviewTaskUrl({
-      clientId: lineage.clientId,
-      documentId: lineage.documentId,
-      extractionRunId: lineage.extractionRunId,
-      decisionRunId: freshDecision.id,
-      reviewTaskId: freshTask.id,
-    });
-
-    router.push(freshUrl);
+      router.push(freshUrl);
+    } catch (taskErr: unknown) {
+      const enhancedError = new Error(
+        taskErr instanceof Error
+          ? taskErr.message
+          : "Review task creation failed after decision was generated."
+      );
+      (enhancedError as unknown as { createdDecisionId: string }).createdDecisionId = decisionRunId;
+      throw enhancedError;
+    }
   };
 
   // Role Access Isolation Guards

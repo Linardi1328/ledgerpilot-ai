@@ -4,11 +4,16 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { Permission, Principal, Role } from "@/types/roles";
 import { DEV_USERS, SYNTHETIC_FIRM_ID } from "../mock/fixtures";
 import { mockDataStore } from "../mock/mock-client";
-import { checkLiveness, fetchContext } from "../api/context";
+import { checkLiveness, fetchContext, validateContextResponse } from "../api/context";
 import { defaultApiClient } from "../api/client";
 
 export type OperatingMode = "live" | "mock";
-export type BackendConnectionStatus = "connected" | "connecting" | "unavailable" | "unauthenticated";
+export type BackendConnectionStatus =
+  | "connected"
+  | "connecting"
+  | "unavailable"
+  | "unauthenticated"
+  | "invalid_context";
 
 interface AuthContextType {
   mode: OperatingMode;
@@ -16,8 +21,8 @@ interface AuthContextType {
   role: Role; // Selected simulator role in the UI header
   setRole: (role: Role) => void;
   principal: Principal | null; // Authoritative principal
-  effectiveRole: Role | null; // Verified role (server-authoritative in live mode)
-  effectivePrincipal: Principal | null; // Verified principal (null in live mode when unauthenticated/unavailable)
+  effectiveRole: Role | null; // Verified server-authoritative role in live mode, simulator role in mock mode
+  effectivePrincipal: Principal | null; // Verified principal (null in live mode when unauthenticated/unavailable/invalid)
   devSubject: string;
   firmId: string;
   connectionStatus: BackendConnectionStatus;
@@ -50,22 +55,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Live Mode: Must fail closed. Only /api/v1/context establishes active principal.
+    // Live Mode: Must fail closed. Only valid /api/v1/context establishes active principal.
     try {
       await checkLiveness(defaultApiClient);
-      const contextData = await fetchContext(defaultApiClient, {
+      const rawContextData = await fetchContext(defaultApiClient, {
         devSubject,
         firmId,
       });
 
-      const parsedPrincipal: Principal = {
-        user_id: contextData.user_id,
-        firm_id: contextData.firm_id,
-        membership_id: contextData.membership_id,
-        role: contextData.role as Role,
-        permissions: contextData.permissions as Permission[],
-        authorized_client_ids: contextData.authorized_client_ids,
-      };
+      // Runtime schema validation
+      const parsedPrincipal = validateContextResponse(rawContextData);
 
       setPrincipal(parsedPrincipal);
       setConnectionStatus("connected");
@@ -74,6 +73,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const code = (err as { code: string }).code;
         if (code === "unauthenticated" || code === "forbidden") {
           setConnectionStatus("unauthenticated");
+          setPrincipal(null);
+          setIsLoading(false);
+          return;
+        }
+        if (code === "invalid_context_payload") {
+          setConnectionStatus("invalid_context");
           setPrincipal(null);
           setIsLoading(false);
           return;
@@ -112,8 +117,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Normalized Authoritative Principal & Role
-  const effectivePrincipal = mode === "mock" ? principal : principal;
-  const effectiveRole = mode === "mock" ? role : (principal ? principal.role : null);
+  const effectivePrincipal: Principal | null = principal;
+  const effectiveRole: Role | null = principal ? principal.role : null;
 
   return (
     <AuthContext.Provider
