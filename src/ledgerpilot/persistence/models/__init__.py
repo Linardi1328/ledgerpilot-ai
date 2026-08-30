@@ -29,6 +29,11 @@ from ledgerpilot.persistence.models.reconciliation import (
     ReconciliationCandidateRecord,
     ReconciliationMatchRunRecord,
 )
+from ledgerpilot.persistence.models.reconciliation_review import (
+    ReconciliationOutcomeRecord,
+    ReconciliationReviewActionRecord,
+    ReconciliationReviewRecord,
+)
 from ledgerpilot.persistence.models.review import ReviewComment, ReviewOutcome, ReviewTask
 
 __all__ = [
@@ -53,6 +58,9 @@ __all__ = [
     "ProposedJournalLine",
     "ReconciliationCandidateRecord",
     "ReconciliationMatchRunRecord",
+    "ReconciliationOutcomeRecord",
+    "ReconciliationReviewActionRecord",
+    "ReconciliationReviewRecord",
     "ReviewComment",
     "ReviewOutcome",
     "ReviewTask",

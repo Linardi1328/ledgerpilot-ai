@@ -12,11 +12,13 @@ from ledgerpilot.persistence.models.reconciliation import (
     ReconciliationCandidateRecord,
     ReconciliationMatchRunRecord,
 )
+from ledgerpilot.reconciliation.states import ReconciliationWorkflowState
 from ledgerpilot.reconciliation.types import (
     BankImportBatch,
     BankTransactionDirection,
     ImportedBankTransaction,
 )
+from ledgerpilot.reconciliation.worklist import ReconciliationWorklistItem
 
 _MAX_MONEY = Decimal("99999999999999.9999")
 _MONEY_QUANTUM = Decimal("0.0001")
@@ -235,3 +237,39 @@ class ReconciliationCandidateResponse(BaseModel):
 class ReconciliationMatchResponse(BaseModel):
     run: ReconciliationMatchRunResponse
     candidates: list[ReconciliationCandidateResponse]
+
+
+class ReconciliationWorklistItemResponse(BaseModel):
+    workflow_state: ReconciliationWorkflowState
+    transaction: BankTransactionResponse
+    latest_match_run: ReconciliationMatchRunResponse | None
+    review_id: UUID | None
+    review_status: str | None
+    selected_review_outcome_id: UUID | None
+    outcome_id: UUID | None
+    outcome_type: str | None
+    matched_review_outcome_id: UUID | None
+    last_activity_at: datetime
+
+    @classmethod
+    def from_item(cls, item: ReconciliationWorklistItem) -> ReconciliationWorklistItemResponse:
+        return cls(
+            workflow_state=item.workflow_state,
+            transaction=BankTransactionResponse.from_record(item.transaction),
+            latest_match_run=(
+                ReconciliationMatchRunResponse.from_record(item.latest_match_run)
+                if item.latest_match_run is not None
+                else None
+            ),
+            review_id=item.review.id if item.review is not None else None,
+            review_status=item.review.status if item.review is not None else None,
+            selected_review_outcome_id=(
+                item.review.selected_review_outcome_id if item.review is not None else None
+            ),
+            outcome_id=item.outcome.id if item.outcome is not None else None,
+            outcome_type=item.outcome.outcome_type if item.outcome is not None else None,
+            matched_review_outcome_id=(
+                item.outcome.matched_review_outcome_id if item.outcome is not None else None
+            ),
+            last_activity_at=item.last_activity_at,
+        )

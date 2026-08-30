@@ -40,11 +40,17 @@ EXPECTED_PHASE_5_TABLES = EXPECTED_PHASE_5_FIRST_SLICE_TABLES | {
     "review_outcomes",
 }
 
-EXPECTED_PHASE_6_TABLES = EXPECTED_PHASE_5_TABLES | {
+EXPECTED_PHASE_6_FOUNDATION_TABLES = EXPECTED_PHASE_5_TABLES | {
     "bank_import_batches",
     "bank_transactions",
     "reconciliation_candidates",
     "reconciliation_match_runs",
+}
+
+EXPECTED_PHASE_6_TABLES = EXPECTED_PHASE_6_FOUNDATION_TABLES | {
+    "reconciliation_outcomes",
+    "reconciliation_review_actions",
+    "reconciliation_reviews",
 }
 
 EXPECTED_TABLES_AFTER_PHASE_3_DOWNGRADE = {
@@ -84,6 +90,10 @@ EXPECTED_TIMEZONE_AWARE_TIMESTAMP_COLUMNS = {
     "proposed_journals.created_at",
     "reconciliation_candidates.created_at",
     "reconciliation_match_runs.created_at",
+    "reconciliation_outcomes.created_at",
+    "reconciliation_review_actions.created_at",
+    "reconciliation_reviews.created_at",
+    "reconciliation_reviews.updated_at",
     "review_comments.created_at",
     "review_outcomes.created_at",
     "review_tasks.created_at",
@@ -113,9 +123,22 @@ def test_initial_migration_upgrade_downgrade_and_schema(
         assert tables == EXPECTED_PHASE_6_TABLES
         review_columns = {column["name"] for column in inspect(engine).get_columns("review_tasks")}
         assert "risk_class" in review_columns
+        reconciliation_review_columns = {
+            column["name"] for column in inspect(engine).get_columns("reconciliation_reviews")
+        }
+        assert "selected_review_outcome_id" in reconciliation_review_columns
     finally:
         engine.dispose()
 
+    command.downgrade(config, "0007_phase_6_reconciliation")
+    engine = create_engine(database_url)
+    try:
+        tables_after_phase_6_review_downgrade = set(inspect(engine).get_table_names())
+        assert tables_after_phase_6_review_downgrade == EXPECTED_PHASE_6_FOUNDATION_TABLES
+    finally:
+        engine.dispose()
+
+    command.upgrade(config, "head")
     command.downgrade(config, "0006_phase_5_review")
     engine = create_engine(database_url)
     try:
