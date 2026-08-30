@@ -162,9 +162,9 @@ def test_worklist_projects_server_authoritative_reconciliation_states(
         params={"state": "disputed"},
     )
     assert disputed_only.status_code == 200
-    assert [
-        item["transaction"]["source_transaction_id"] for item in disputed_only.json()
-    ] == ["synthetic-worklist-disputed"]
+    assert [item["transaction"]["source_transaction_id"] for item in disputed_only.json()] == [
+        "synthetic-worklist-disputed"
+    ]
 
 
 def test_worklist_is_auditor_readable_and_submitter_forbidden(
