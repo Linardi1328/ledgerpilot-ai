@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy.orm import Session
 
 from ledgerpilot.api.dependencies import get_session, get_settings, require_permission
@@ -23,10 +23,36 @@ from ledgerpilot.reconciliation.schemas import (
     ReconciliationCandidateResponse,
     ReconciliationMatchResponse,
     ReconciliationMatchRunResponse,
+    ReconciliationWorklistItemResponse,
     SyntheticBankImportCreateRequest,
 )
+from ledgerpilot.reconciliation.states import ReconciliationWorkflowState
+from ledgerpilot.reconciliation.worklist import ReconciliationWorklistService
 
 router = APIRouter(prefix="/clients/{client_id}/bank-reconciliation")
+
+
+@router.get(
+    "/worklist",
+    response_model=list[ReconciliationWorklistItemResponse],
+)
+def list_reconciliation_worklist(
+    client_id: UUID,
+    principal: Annotated[
+        Principal,
+        Depends(require_permission(Permission.VIEW_RECONCILIATION_HISTORY)),
+    ],
+    session: Annotated[Session, Depends(get_session)],
+    state: ReconciliationWorkflowState | None = Query(default=None),
+    limit: int = Query(default=200, ge=1, le=500),
+) -> list[ReconciliationWorklistItemResponse]:
+    items = ReconciliationWorklistService(session=session).list_items(
+        principal=principal,
+        client_id=client_id,
+        state=state,
+        limit=limit,
+    )
+    return [ReconciliationWorklistItemResponse.from_item(item) for item in items]
 
 
 @router.post(

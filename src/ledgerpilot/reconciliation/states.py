@@ -23,6 +23,16 @@ class ReconciliationOutcomeType(StrEnum):
     UNMATCHED = "unmatched"
 
 
+class ReconciliationWorkflowState(StrEnum):
+    NOT_EVALUATED = "not_evaluated"
+    UNMATCHED = "unmatched"
+    CANDIDATES_AVAILABLE = "candidates_available"
+    IN_REVIEW = "in_review"
+    DISPUTED = "disputed"
+    MATCHED = "matched"
+    RESOLVED_UNMATCHED = "resolved_unmatched"
+
+
 TERMINAL_RECONCILIATION_REVIEW_STATUSES = frozenset(
     {
         ReconciliationReviewStatus.MATCHED,
