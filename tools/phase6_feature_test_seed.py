@@ -187,6 +187,8 @@ def _add_identity(session: Session) -> None:
             updated_at=_at(0),
         )
     )
+    session.flush()
+
     session.add_all(
         [
             ClientEntity(
@@ -220,6 +222,12 @@ def _add_identity(session: Session) -> None:
                 updated_at=_at(minute),
             )
         )
+    session.flush()
+
+    for minute, key in enumerate(
+        ("accountant", "senior", "submitter", "auditor", "admin"),
+        3,
+    ):
         session.add(
             FirmMembership(
                 id=MEMBERSHIP_IDS[key],
@@ -230,6 +238,8 @@ def _add_identity(session: Session) -> None:
                 created_at=_at(minute),
             )
         )
+    session.flush()
+
     access = (
         ("accountant", CLIENT_A_ID),
         ("accountant", CLIENT_B_ID),
@@ -250,6 +260,7 @@ def _add_identity(session: Session) -> None:
                 created_at=_at(minute),
             )
         )
+    session.flush()
 
 
 def _add_approved_target(session: Session) -> UUID:
@@ -281,6 +292,8 @@ def _add_approved_target(session: Session) -> UUID:
             updated_at=created_at,
         )
     )
+    session.flush()
+
     session.add(
         DocumentFile(
             id=file_id,
@@ -295,6 +308,8 @@ def _add_approved_target(session: Session) -> UUID:
             created_at=created_at,
         )
     )
+    session.flush()
+
     session.add(
         ExtractionRun(
             id=extraction_id,
@@ -317,6 +332,8 @@ def _add_approved_target(session: Session) -> UUID:
             created_at=created_at,
         )
     )
+    session.flush()
+
     fields = (
         ("document.type", ExtractionValueType.TEXT.value, "purchase_invoice"),
         (
@@ -347,6 +364,8 @@ def _add_approved_target(session: Session) -> UUID:
                 created_at=created_at,
             )
         )
+    session.flush()
+
     session.add(
         AccountingDecisionRun(
             id=decision_id,
@@ -368,6 +387,8 @@ def _add_approved_target(session: Session) -> UUID:
             created_at=created_at,
         )
     )
+    session.flush()
+
     session.add(
         ProposedJournal(
             id=journal_id,
@@ -385,6 +406,8 @@ def _add_approved_target(session: Session) -> UUID:
             created_at=created_at,
         )
     )
+    session.flush()
+
     journal_lines = (
         (
             1,
@@ -420,6 +443,8 @@ def _add_approved_target(session: Session) -> UUID:
                 created_at=created_at,
             )
         )
+    session.flush()
+
     session.add(
         ReviewTask(
             id=task_id,
@@ -441,6 +466,8 @@ def _add_approved_target(session: Session) -> UUID:
             updated_at=created_at,
         )
     )
+    session.flush()
+
     session.add(
         ReviewOutcome(
             id=outcome_id,
@@ -460,6 +487,7 @@ def _add_approved_target(session: Session) -> UUID:
             created_at=created_at,
         )
     )
+    session.flush()
     return outcome_id
 
 
@@ -486,6 +514,8 @@ def _add_bank_batch(
             created_at=_at(30),
         )
     )
+    session.flush()
+
     for tx_key, booking_date, amount, reference, counterparty in transactions:
         session.add(
             BankTransactionRecord(
@@ -507,6 +537,7 @@ def _add_bank_batch(
                 created_at=_at(31),
             )
         )
+    session.flush()
 
 
 def _add_bank_transactions(session: Session) -> None:
@@ -569,7 +600,6 @@ def seed_phase6_feature_test(
     _ensure_no_partial_seed(session)
     try:
         _add_identity(session)
-        session.flush()
         _add_approved_target(session)
         _add_bank_transactions(session)
         session.commit()
@@ -586,9 +616,7 @@ def main() -> None:
     parser.add_argument(
         "--confirm-synthetic-test-database",
         action="store_true",
-        help=(
-            "Required acknowledgement that the configured database is isolated and synthetic-only."
-        ),
+        help="Required acknowledgement that the configured database is isolated and synthetic-only.",
     )
     args = parser.parse_args()
     settings = Settings()
