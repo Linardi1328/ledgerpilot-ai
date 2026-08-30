@@ -91,18 +91,14 @@ def test_phase6_feature_test_seed_is_idempotent_and_drives_real_matching(
         state=ReconciliationWorkflowState.CANDIDATES_AVAILABLE,
         limit=50,
     )
-    assert [item.transaction.id for item in candidate_items] == [
-        first.candidate_transaction_id
-    ]
+    assert [item.transaction.id for item in candidate_items] == [first.candidate_transaction_id]
     untouched_items = ReconciliationWorklistService(session=db_session).list_items(
         principal=principal,
         client_id=CLIENT_A_ID,
         state=ReconciliationWorkflowState.NOT_EVALUATED,
         limit=50,
     )
-    assert [item.transaction.id for item in untouched_items] == [
-        first.untouched_transaction_id
-    ]
+    assert [item.transaction.id for item in untouched_items] == [first.untouched_transaction_id]
 
 
 def test_phase6_feature_test_seed_requires_explicit_confirmation(db_session, settings) -> None:
