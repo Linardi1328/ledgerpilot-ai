@@ -43,8 +43,8 @@ def list_reconciliation_worklist(
         Depends(require_permission(Permission.VIEW_RECONCILIATION_HISTORY)),
     ],
     session: Annotated[Session, Depends(get_session)],
-    state: ReconciliationWorkflowState | None = Query(default=None),
-    limit: int = Query(default=200, ge=1, le=500),
+    state: Annotated[ReconciliationWorkflowState | None, Query()] = None,
+    limit: Annotated[int, Query(ge=1, le=500)] = 200,
 ) -> list[ReconciliationWorklistItemResponse]:
     items = ReconciliationWorklistService(session=session).list_items(
         principal=principal,
