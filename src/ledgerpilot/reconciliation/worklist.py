@@ -55,11 +55,11 @@ class ReconciliationWorklistService:
             raise ValueError("limit must be between 1 and 500")
 
         latest_runs: dict[UUID, ReconciliationMatchRunRecord] = {}
-        for run in self._worklist.list_match_runs(
+        for match_run in self._worklist.list_match_runs(
             firm_id=principal.firm_id,
             client_id=client_id,
         ):
-            latest_runs[run.bank_transaction_id] = run
+            latest_runs[match_run.bank_transaction_id] = match_run
 
         reviews = {
             review.bank_transaction_id: review
@@ -81,22 +81,22 @@ class ReconciliationWorklistService:
             firm_id=principal.firm_id,
             client_id=client_id,
         ):
-            run = latest_runs.get(transaction.id)
+            latest_run = latest_runs.get(transaction.id)
             review = reviews.get(transaction.id)
             outcome = outcomes.get(transaction.id)
-            workflow_state = _project_workflow_state(run=run, review=review)
+            workflow_state = _project_workflow_state(run=latest_run, review=review)
             if state is not None and workflow_state is not state:
                 continue
             items.append(
                 ReconciliationWorklistItem(
                     transaction=transaction,
                     workflow_state=workflow_state,
-                    latest_match_run=run,
+                    latest_match_run=latest_run,
                     review=review,
                     outcome=outcome,
                     last_activity_at=_last_activity_at(
                         transaction=transaction,
-                        run=run,
+                        run=latest_run,
                         review=review,
                         outcome=outcome,
                     ),
