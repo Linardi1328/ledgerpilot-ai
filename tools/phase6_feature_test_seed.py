@@ -616,7 +616,10 @@ def main() -> None:
     parser.add_argument(
         "--confirm-synthetic-test-database",
         action="store_true",
-        help="Required acknowledgement that the configured database is isolated and synthetic-only.",
+        help=(
+            "Required acknowledgement that the configured database is isolated "
+            "and synthetic-only."
+        ),
     )
     args = parser.parse_args()
     settings = Settings()
