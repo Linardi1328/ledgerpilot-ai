@@ -46,48 +46,54 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.12.10"
+          enable-cache: true
+
       - name: Install package and development dependencies
-        run: python -m pip install -e ".[dev]"
+        run: uv sync --extra dev --locked
 
       - name: Ruff lint
-        run: python -m ruff check .
+        run: uv run --no-sync ruff check .
 
       - name: Ruff format
-        run: python -m ruff format --check .
+        run: uv run --no-sync ruff format --check .
 
       - name: Mypy
-        run: python -m mypy src
+        run: uv run --no-sync mypy src
 
       - name: Alembic upgrade
-        run: alembic upgrade head
+        run: uv run --no-sync alembic upgrade head
 
       - name: Alembic downgrade and re-upgrade
         run: |
-          alembic downgrade 0001_phase_1
-          alembic upgrade head
-          alembic downgrade base
-          alembic upgrade head
+          uv run --no-sync alembic downgrade 0001_phase_1
+          uv run --no-sync alembic upgrade head
+          uv run --no-sync alembic downgrade base
+          uv run --no-sync alembic upgrade head
 
       - name: PostgreSQL document constraint tests
-        run: python -m pytest tests/integration/test_postgresql_document_constraints.py
+        run: uv run --no-sync pytest tests/integration/test_postgresql_document_constraints.py
 
       - name: PostgreSQL extraction constraint tests
-        run: python -m pytest tests/integration/test_postgresql_extraction_constraints.py
+        run: uv run --no-sync pytest tests/integration/test_postgresql_extraction_constraints.py
 
       - name: PostgreSQL accounting constraint tests
-        run: python -m pytest tests/integration/test_postgresql_accounting_constraints.py
+        run: uv run --no-sync pytest tests/integration/test_postgresql_accounting_constraints.py
 
       - name: PostgreSQL review constraint tests
-        run: python -m pytest tests/integration/test_postgresql_review_constraints.py
+        run: uv run --no-sync pytest tests/integration/test_postgresql_review_constraints.py
 
       - name: PostgreSQL reconciliation constraint tests
-        run: python -m pytest tests/integration/test_postgresql_reconciliation_constraints.py
+        run: uv run --no-sync pytest tests/integration/test_postgresql_reconciliation_constraints.py
 
       - name: PostgreSQL reconciliation review constraint tests
-        run: python -m pytest tests/integration/test_postgresql_reconciliation_review_constraints.py
+        run: uv run --no-sync pytest tests/integration/test_postgresql_reconciliation_review_constraints.py
 
       - name: Pytest
-        run: python -m pytest --cov=ledgerpilot --cov-report=term-missing
+        run: uv run --no-sync pytest --cov=ledgerpilot --cov-report=term-missing
 
       - name: Build
-        run: python -m build
+        run: uv run --no-sync python -m build

@@ -46,8 +46,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.12.10"
+          enable-cache: true
       - name: Install dependencies
-        run: python -m pip install -e ".[dev]"
+        run: uv sync --extra dev --locked
       - name: Node syntax checks
         shell: bash
         run: |
@@ -58,20 +63,20 @@ jobs:
           while IFS= read -r -d '' file; do bash -n "$file"; done < <(find . -path ./.git -prune -o -type f -name '*.sh' -print0)
       - name: Full regression suite
         run: |
-          python -m ruff check .
-          python -m ruff format --check .
-          python -m mypy src
-          alembic upgrade head
-          alembic downgrade 0001_phase_1
-          alembic upgrade head
-          alembic downgrade base
-          alembic upgrade head
-          python -m pytest tests/integration/test_postgresql_document_constraints.py
-          python -m pytest tests/integration/test_postgresql_extraction_constraints.py
-          python -m pytest tests/integration/test_postgresql_accounting_constraints.py
-          python -m pytest tests/integration/test_postgresql_review_constraints.py
-          python -m pytest --cov=ledgerpilot --cov-report=term-missing
-          python -m build
+          uv run --no-sync ruff check .
+          uv run --no-sync ruff format --check .
+          uv run --no-sync mypy src
+          uv run --no-sync alembic upgrade head
+          uv run --no-sync alembic downgrade 0001_phase_1
+          uv run --no-sync alembic upgrade head
+          uv run --no-sync alembic downgrade base
+          uv run --no-sync alembic upgrade head
+          uv run --no-sync pytest tests/integration/test_postgresql_document_constraints.py
+          uv run --no-sync pytest tests/integration/test_postgresql_extraction_constraints.py
+          uv run --no-sync pytest tests/integration/test_postgresql_accounting_constraints.py
+          uv run --no-sync pytest tests/integration/test_postgresql_review_constraints.py
+          uv run --no-sync pytest --cov=ledgerpilot --cov-report=term-missing
+          uv run --no-sync python -m build
       - name: Diff whitespace checks
         run: |
           git diff --check
