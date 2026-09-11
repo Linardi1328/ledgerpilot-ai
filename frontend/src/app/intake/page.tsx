@@ -17,6 +17,7 @@ export default function IntakePipelinePage() {
   const { activeClient } = useClientContext();
 
   const [file, setFile] = useState<File | null>(null);
+  const [syntheticConfirmed, setSyntheticConfirmed] = useState(false);
   const [pipelineStep, setPipelineStep] = useState<string | null>(null);
   const [createdUrl, setCreatedUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -26,6 +27,10 @@ export default function IntakePipelinePage() {
     e.preventDefault();
     if (!file) {
       setError("Please choose a synthetic PDF or image file.");
+      return;
+    }
+    if (!syntheticConfirmed) {
+      setError("Confirm that the selected file is synthetic and contains no real client, personal, or confidential financial data.");
       return;
     }
 
@@ -51,7 +56,6 @@ export default function IntakePipelinePage() {
         return;
       }
 
-      // Live Mode: Execute sequential live backend steps
       setPipelineStep("1/4: Uploading document to FastAPI...");
       const doc = await uploadDocument(activeClient.id, file, defaultApiClient, {
         devSubject,
@@ -108,7 +112,7 @@ export default function IntakePipelinePage() {
     <div className="space-y-6 max-w-3xl mx-auto">
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-3 shadow-xl">
         <div className="flex items-center space-x-2 text-blue-400 font-bold text-base">
-          <UploadCloud className="w-5 h-5" />
+          <UploadCloud aria-hidden="true" className="w-5 h-5" />
           <span>Document Intake Pipeline</span>
         </div>
         <p className="text-xs text-slate-300 leading-relaxed">
@@ -129,23 +133,38 @@ export default function IntakePipelinePage() {
               id="fileInput"
               type="file"
               accept=".pdf,.png,.jpg,.jpeg"
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              aria-describedby="synthetic-file-rule"
+              onChange={(e) => {
+                setFile(e.target.files?.[0] || null);
+                setSyntheticConfirmed(false);
+              }}
               className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-300 file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-500 cursor-pointer"
             />
-            <p className="text-[10px] text-slate-500 mt-1">
-              * Non-negotiable repository rule: Never upload real financial, personal, or client documents. Use synthetic files only.
+            <p id="synthetic-file-rule" className="text-[10px] text-slate-400 mt-1 leading-5">
+              Non-negotiable repository rule: never upload real financial, personal, employee, taxpayer, banking, or client documents. Use synthetic files only. See the <Link className="text-blue-300 underline underline-offset-2" href="/privacy">Privacy Policy</Link>.
             </p>
           </div>
 
+          <label className="flex items-start gap-2 rounded border border-slate-800 bg-slate-950/70 p-3 text-slate-300">
+            <input
+              type="checkbox"
+              required
+              checked={syntheticConfirmed}
+              onChange={(e) => setSyntheticConfirmed(e.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-blue-600"
+            />
+            <span>I confirm this file is synthetic and contains no real client, personal, confidential financial, banking, taxpayer, or employee data.</span>
+          </label>
+
           {error && (
-            <div className="bg-rose-950/60 border border-rose-800 text-rose-300 p-3 rounded flex items-center space-x-2">
-              <AlertCircle className="w-4 h-4 shrink-0" />
+            <div role="alert" className="bg-rose-950/60 border border-rose-800 text-rose-300 p-3 rounded flex items-center space-x-2">
+              <AlertCircle aria-hidden="true" className="w-4 h-4 shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
           {pipelineStep && (
-            <div className="bg-slate-950 p-3 rounded border border-slate-800 font-mono text-xs text-blue-400">
+            <div aria-live="polite" className="bg-slate-950 p-3 rounded border border-slate-800 font-mono text-xs text-blue-400">
               {pipelineStep}
             </div>
           )}
@@ -153,11 +172,11 @@ export default function IntakePipelinePage() {
           {createdUrl && (
             <div className="bg-emerald-950/40 border border-emerald-800 p-4 rounded-lg space-y-2 text-emerald-200">
               <div className="flex items-center space-x-2 font-bold text-emerald-300">
-                <CheckCircle className="w-4 h-4" />
+                <CheckCircle aria-hidden="true" className="w-4 h-4" />
                 <span>Review Task Generated Successfully</span>
               </div>
               <p className="text-[11px] text-slate-300">
-                The document has moved through extraction and deterministic evaluation. Click below to launch the Review Workspace:
+                The document has moved through extraction and deterministic evaluation. Open the human review workspace below.
               </p>
               <div className="pt-1">
                 <Link
@@ -165,7 +184,7 @@ export default function IntakePipelinePage() {
                   className="inline-flex items-center space-x-1.5 px-4 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow"
                 >
                   <span>Open Review Workspace</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  <ArrowRight aria-hidden="true" className="w-3.5 h-3.5" />
                 </Link>
               </div>
             </div>
@@ -174,11 +193,11 @@ export default function IntakePipelinePage() {
           <div className="pt-2">
             <button
               type="submit"
-              disabled={isProcessing || !file}
-              className="px-5 py-2 rounded bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition flex items-center space-x-1.5 disabled:opacity-50"
+              disabled={isProcessing || !file || !syntheticConfirmed}
+              className="px-5 py-2 rounded bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition flex items-center space-x-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Play className="w-3.5 h-3.5" />
-              <span>{isProcessing ? "Processing Pipeline..." : "Execute Intake Pipeline"}</span>
+              <Play aria-hidden="true" className="w-3.5 h-3.5" />
+              <span>{isProcessing ? "Processing Pipeline..." : "Execute Synthetic Intake Pipeline"}</span>
             </button>
           </div>
         </form>
